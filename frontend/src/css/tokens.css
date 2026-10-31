@@ -1,0 +1,29 @@
+/* Design tokens for the Classical palette used in the mockups (docs/design-brief.md).
+   Colours and type are defined here and nowhere else, so a palette change is a
+   one-file change. */
+
+   :root {
+    --color-bg: #f3f2f2;
+    --color-surface: #eae9e9;
+    --color-ink: #201f1d;
+  
+    --color-accent: #b68235;
+    --color-accent-tint: #fff3e4;
+    --color-accent-deep: #7d5411;
+  
+    --color-n200: #eae7e7;
+    --color-n300: #d7d3d3;
+    --color-n400: #bab6b6;
+    --color-n500: #9b9797;
+    --color-n700: #605d5d;
+  
+    --color-divider: color-mix(in srgb, #201f1d 16%, transparent);
+  
+    /* Font variables are injected onto <html> by next/font in app/layout.tsx. */
+    --font-heading: var(--font-cormorant), Georgia, serif;
+    --font-body: var(--font-lora), Georgia, serif;
+    --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+  
+    --radius: 4px;
+    --radius-lg: 7px;
+  }
