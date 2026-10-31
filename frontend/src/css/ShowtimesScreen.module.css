@@ -1,0 +1,169 @@
+.page {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 40px 16px 64px;
+  }
+  
+  .title {
+    font-size: 46px;
+  }
+  
+  .subtitle {
+    margin-top: 8px;
+    font-style: italic;
+    color: var(--color-n700);
+  }
+  
+  .film {
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 1px solid var(--color-divider);
+  }
+  
+  .filmTitle {
+    font-size: 30px;
+  }
+  
+  .filmMeta {
+    margin-top: 4px;
+    font-size: 13px;
+    font-style: italic;
+    color: var(--color-n700);
+  }
+  
+  .times {
+    margin-top: 16px;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  
+  /* Cards share their whole layout; the variants change only the border and
+     whether they respond to a pointer. */
+  .card,
+  .cardLow,
+  .cardGone {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 16px;
+    border: 1px solid var(--color-divider);
+    border-radius: var(--radius);
+    text-decoration: none;
+    color: inherit;
+  }
+  
+  .card:hover,
+  .cardLow:hover {
+    background: var(--color-surface);
+  }
+  
+  .cardLow {
+    border-color: var(--color-accent);
+  }
+  
+  .cardGone {
+    border-style: dashed;
+    border-color: var(--color-n300);
+    opacity: 0.7;
+  }
+  
+  .time,
+  .timeGone {
+    font-family: var(--font-heading);
+    font-size: 28px;
+    line-height: 1;
+    font-feature-settings: "tnum";
+  }
+  
+  .timeGone {
+    color: var(--color-n500);
+    text-decoration: line-through;
+  }
+  
+  .meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 12px;
+    font-size: 13px;
+    color: var(--color-n700);
+  }
+  
+  .gauge {
+    display: block;
+    height: 1px;
+    margin-top: 8px;
+    background: var(--color-n300);
+  }
+  
+  .gaugeFill {
+    display: block;
+    height: 1px;
+    background: var(--color-n700);
+  }
+  
+  .seats,
+  .seatsLow {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--color-n700);
+  }
+  
+  .seatsLow {
+    color: var(--color-accent-deep);
+  }
+  
+  .panel {
+    margin-top: 32px;
+    padding: 20px;
+    border: 1px solid var(--color-divider);
+    border-radius: var(--radius);
+  }
+  
+  .retry {
+    margin-top: 12px;
+    background: none;
+    border: 0;
+    padding: 0;
+    font-size: 14px;
+    color: var(--color-accent-deep);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  
+  .skeletons {
+    margin-top: 32px;
+    display: grid;
+    gap: 16px;
+  }
+  
+  .skeleton {
+    height: 150px;
+    border-radius: var(--radius);
+    background: var(--color-n200);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  
+  @keyframes pulse {
+    50% {
+      opacity: 0.45;
+    }
+  }
+  
+  @media (min-width: 640px) {
+    .times {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    .title {
+      font-size: 60px;
+    }
+  }
+  
+  @media (min-width: 1024px) {
+    .times {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }

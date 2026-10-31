@@ -1,3 +1,5 @@
-export default function HomePage() {
-  return <p>CineBook</p>;
+import { ShowtimesScreen } from "@/screens/ShowtimesScreen";
+
+export default function Page() {
+  return <ShowtimesScreen />;
 }
