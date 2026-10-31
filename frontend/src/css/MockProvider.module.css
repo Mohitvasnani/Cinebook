@@ -1,0 +1,8 @@
+.pending {
+    display: flex;
+    min-height: 60vh;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-n500);
+    font-size: 14px;
+  }

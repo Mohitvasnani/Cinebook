@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, JetBrains_Mono, Lora } from "next/font/google";
-
+import { MockProvider } from "@/components/MockProvider";
+import { SiteHeader } from "@/components/SiteHeader";
 import "@/css/globals.css";
 
 /* Self-hosted at build time, so no render-blocking request to Google and no
@@ -35,7 +36,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${cormorant.variable} ${lora.variable} ${jetbrains.variable}`}
     >
-      <body>{children}</body>
+      <body> 
+        <MockProvider>
+          <main><SiteHeader />
+          {children}
+          </main>          
+        </MockProvider>
+      </body>
     </html>
   );
 }
