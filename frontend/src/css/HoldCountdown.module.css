@@ -1,0 +1,84 @@
+.root {
+    padding: 16px;
+    border: 1px solid;
+    border-radius: var(--radius);
+  }
+  
+  .calm {
+    border-color: var(--color-divider);
+  }
+  
+  .urgent {
+    border-color: var(--color-accent);
+    background: var(--color-accent-tint);
+  }
+  
+  .expired {
+    border-style: dashed;
+    border-color: var(--color-n400);
+    color: var(--color-n700);
+  }
+  
+  .head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  
+  .label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+  }
+  
+  .clock {
+    font-family: var(--font-heading);
+    font-size: 34px;
+    line-height: 1;
+  }
+  
+  .clockDead {
+    text-decoration: line-through;
+  }
+  
+  .bar {
+    height: 1px;
+    margin-top: 12px;
+    background: var(--color-n300);
+  }
+  
+  .barFill {
+    height: 1px;
+    background: var(--color-ink);
+    transition: width 1s linear;
+  }
+  
+  .ticks {
+    display: flex;
+    gap: 4px;
+    margin-top: 12px;
+  }
+  
+  .tickOn,
+  .tickOff {
+    flex: 1;
+    height: 6px;
+    border-radius: 1px;
+  }
+  
+  .tickOn {
+    background: var(--color-accent-deep);
+  }
+  
+  .tickOff {
+    background: var(--color-n300);
+  }
+  
+  .note {
+    margin-top: 12px;
+    font-size: 13px;
+    font-style: italic;
+    color: var(--color-n700);
+  }

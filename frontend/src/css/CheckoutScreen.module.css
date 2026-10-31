@@ -1,0 +1,125 @@
+.page {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 32px 16px 64px;
+  }
+  
+  .title {
+    margin-top: 28px;
+    font-size: 38px;
+  }
+  
+  .summary {
+    margin-top: 20px;
+    padding: 20px;
+    border: 1px solid var(--color-divider);
+    border-radius: var(--radius);
+    font-size: 15px;
+  }
+  
+  .row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--color-divider);
+  }
+  
+  .rowLabel {
+    color: var(--color-n700);
+  }
+  
+  .total {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding-top: 12px;
+  }
+  
+  .totalValue {
+    font-family: var(--font-heading);
+    font-size: 26px;
+  }
+  
+  .confirm,
+  .primary {
+    display: block;
+    width: 100%;
+    margin-top: 20px;
+    padding: 12px 20px;
+    border: 1px solid var(--color-accent);
+    border-radius: var(--radius);
+    background: none;
+    color: var(--color-accent-deep);
+    font-size: 15px;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  
+  .confirm:hover:enabled,
+  .primary:hover {
+    background: var(--color-accent-tint);
+  }
+  
+  .confirm:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  
+  .release,
+  .secondary {
+    display: block;
+    width: 100%;
+    margin-top: 16px;
+    background: none;
+    border: 0;
+    padding: 0;
+    font-size: 14px;
+    text-align: center;
+    color: var(--color-accent-deep);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  
+  .release:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  
+  .panel {
+    margin-top: 20px;
+    padding: 20px;
+    border: 1px solid var(--color-divider);
+    border-radius: var(--radius);
+  }
+  
+  .explain {
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  
+  .problem {
+    margin-top: 12px;
+    font-size: 14px;
+    color: var(--color-accent-deep);
+  }
+  
+  .back {
+    display: inline-block;
+    margin-top: 16px;
+  }
+  
+  .skeleton {
+    height: 120px;
+    border-radius: var(--radius);
+    background: var(--color-n200);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  
+  @keyframes pulse {
+    50% {
+      opacity: 0.45;
+    }
+  }
