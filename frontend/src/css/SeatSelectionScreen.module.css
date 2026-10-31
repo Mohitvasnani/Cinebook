@@ -1,0 +1,146 @@
+.page {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 32px 16px 64px;
+  }
+  
+  .back {
+    font-size: 14px;
+  }
+  
+  .title {
+    margin-top: 12px;
+    font-size: 38px;
+  }
+  
+  .meta {
+    margin-top: 4px;
+    font-size: 14px;
+    font-style: italic;
+    color: var(--color-n700);
+  }
+  
+  .layout {
+    margin-top: 32px;
+    display: grid;
+    gap: 32px;
+  }
+  
+  .aside {
+    align-self: start;
+  }
+  
+  .summary {
+    padding: 20px;
+    border: 1px solid var(--color-divider);
+    border-radius: var(--radius);
+  }
+  
+  .kicker {
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: var(--color-accent-deep);
+  }
+  
+  .chosen {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 8px;
+  }
+  
+  .seatName {
+    font-family: var(--font-heading);
+    font-size: 42px;
+    line-height: 1;
+  }
+  
+  .row,
+  .empty {
+    margin-top: 8px;
+    font-size: 14px;
+    color: var(--color-n700);
+  }
+  
+  /* Outlined, never filled. The design system is explicit about that. */
+  .hold {
+    width: 100%;
+    margin-top: 20px;
+    padding: 12px 20px;
+    border: 1px solid var(--color-accent);
+    border-radius: var(--radius);
+    background: none;
+    color: var(--color-accent-deep);
+    font-size: 15px;
+    cursor: pointer;
+    transition: background-color 120ms ease;
+  }
+  
+  .hold:hover:enabled {
+    background: var(--color-accent-tint);
+  }
+  
+  .hold:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  
+  .note {
+    margin-top: 12px;
+    font-size: 13px;
+    font-style: italic;
+    color: var(--color-n700);
+  }
+  
+  .conflict {
+    margin-bottom: 16px;
+    padding: 16px;
+    border: 1px solid var(--color-divider);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    font-size: 15px;
+  }
+  
+  .conflictHint {
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--color-n700);
+  }
+  
+  .panel {
+    padding: 20px;
+    border: 1px solid var(--color-divider);
+    border-radius: var(--radius);
+  }
+  
+  .retry {
+    margin-top: 12px;
+    background: none;
+    border: 0;
+    padding: 0;
+    font-size: 14px;
+    color: var(--color-accent-deep);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  
+  .skeleton {
+    height: 380px;
+    border-radius: var(--radius);
+    background: var(--color-n200);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  
+  @keyframes pulse {
+    50% {
+      opacity: 0.45;
+    }
+  }
+  
+  @media (min-width: 1024px) {
+    .layout {
+      grid-template-columns: 1fr 280px;
+      gap: 40px;
+    }
+  }
