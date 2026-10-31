@@ -1,0 +1,9 @@
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+bin/
+out/
+HELP.md
+
+### Spring local overrides ###
+application-local.properties
