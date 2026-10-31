@@ -10,8 +10,8 @@ construction rather than by discovery.
 - Errors use RFC 9457 problem details (`application/problem+json`)
 - Hold TTL: 300 seconds
 
-Six endpoints. Four are the core booking flow. Two are `GET`s that exist so the
-client's URLs survive a page refresh.
+Seven endpoints. Four are the core booking flow. Two are `GET`s that exist so the
+client's URLs survive a page refresh. One releases a hold early.
 
 ---
 
@@ -214,6 +214,22 @@ Exists so the confirmation page is reloadable and shareable.
 
 The reference is a short human-readable code (`CB-7F3K2Q`), not the primary key.
 People read references out loud; UUIDs do not survive that.
+
+---
+
+## 7. `DELETE /api/holds/{holdId}`
+
+Release a hold before it expires.
+
+**204** no content.
+
+**404** unknown hold. **409** `problems/hold-already-converted` if it is already a
+booking; a booking is cancelled, not released, and cancellation is out of scope.
+
+Added after the design review: the checkout screen offers "Release and go back",
+and without this the seat would sit locked for the rest of its five minutes even
+though the user has explicitly walked away. Releasing early is the difference
+between a hold that models intent and one that just models a timeout.
 
 ---
 
