@@ -1,0 +1,46 @@
+.seat {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: var(--radius);
+    font-size: 10px;
+    line-height: 1;
+    background: none;
+    cursor: pointer;
+    transition: background-color 120ms ease;
+  }
+  
+  .seat:disabled {
+    cursor: not-allowed;
+  }
+  
+  /* The four states. Each differs in more than colour: border weight, fill,
+     pattern or glyph, so the map still reads in greyscale. */
+  
+  .available {
+    border: 1px solid var(--color-n400);
+  }
+  
+  .available:hover {
+    background: var(--color-surface);
+  }
+  
+  .selected {
+    border: 2px solid var(--color-accent);
+    color: var(--color-accent-deep);
+  }
+  
+  .held {
+    border: 1px solid var(--color-n300);
+    color: transparent;
+    background-image: repeating-linear-gradient(
+      45deg,
+      var(--color-n300) 0 2px,
+      transparent 2px 5px
+    );
+  }
+  
+  .booked {
+    border: 1px solid var(--color-n300);
+    background: var(--color-n200);
+    color: var(--color-n500);
+  }

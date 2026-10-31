@@ -1,0 +1,23 @@
+.root {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px 24px;
+    margin-top: 24px;
+    padding: 0;
+    list-style: none;
+    font-size: 13px;
+    color: var(--color-n700);
+  }
+  
+  .item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+  }
