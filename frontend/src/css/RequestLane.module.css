@@ -1,0 +1,44 @@
+.root {
+    padding: 16px;
+    border: 1px solid var(--color-divider);
+    border-radius: var(--radius);
+    font-family: var(--font-mono);
+    font-size: 13px;
+  }
+  
+  .head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  
+  .badgeIdle,
+  .badgeWon,
+  .badgeLost {
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  
+  .badgeIdle {
+    border: 1px dashed var(--color-n400);
+    color: var(--color-n700);
+  }
+  
+  /* The winner is the only filled element on the page, so it reads at a glance. */
+  .badgeWon {
+    background: var(--color-ink);
+    color: var(--color-bg);
+  }
+  
+  .badgeLost {
+    border: 1px dashed var(--color-n400);
+  }
+  
+  .body {
+    margin-top: 8px;
+    word-break: break-all;
+    color: var(--color-n700);
+  }
