@@ -1,0 +1,110 @@
+.page {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 40px 16px 64px;
+  }
+  
+  .kicker {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: var(--color-accent-deep);
+  }
+  
+  .title {
+    margin-top: 8px;
+    font-size: 38px;
+  }
+  
+  .ticket {
+    margin-top: 24px;
+    border: 1px solid var(--color-divider);
+    border-radius: var(--radius);
+  }
+  
+  .stub {
+    padding: 24px;
+    text-align: center;
+  }
+  
+  .stubLabel {
+    font-size: 13px;
+    color: var(--color-n700);
+  }
+  
+  .reference {
+    margin-top: 8px;
+    font-family: var(--font-heading);
+    font-size: 46px;
+    line-height: 1;
+    letter-spacing: 0.04em;
+  }
+  
+  .copy {
+    margin-top: 12px;
+    background: none;
+    border: 0;
+    padding: 0;
+    font-size: 13px;
+    color: var(--color-accent-deep);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  
+  .perforation {
+    border-top: 1px dashed var(--color-n400);
+  }
+  
+  .details {
+    padding: 24px;
+    font-size: 15px;
+  }
+  
+  .row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--color-divider);
+  }
+  
+  .rowLabel {
+    color: var(--color-n700);
+  }
+  
+  .paid {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding-top: 12px;
+  }
+  
+  .paidValue {
+    font-family: var(--font-heading);
+    font-size: 24px;
+  }
+  
+  .panel {
+    margin-top: 24px;
+    padding: 20px;
+    border: 1px solid var(--color-divider);
+    border-radius: var(--radius);
+  }
+  
+  .back {
+    display: inline-block;
+    margin-top: 24px;
+  }
+  
+  .skeleton {
+    height: 280px;
+    border-radius: var(--radius);
+    background: var(--color-n200);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  
+  @keyframes pulse {
+    50% {
+      opacity: 0.45;
+    }
+  }
