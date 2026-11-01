@@ -23,27 +23,39 @@ cinebook/
 
 ## Running locally
 
-Postgres first:
+Postgres first, from the repository root. Local dev uses a throwaway database
+whose password is `postgres`, so there is nothing to configure. Set `DB_PASSWORD`
+in a `.env` only if you want to override it.
 
 ```bash
-cp .env.example .env     # set DB_PASSWORD
 docker compose up -d
+docker compose ps          # wait for "healthy"
 ```
 
-Backend:
+Backend. Flyway applies the migrations on startup, so there is no separate
+migrate step:
 
 ```bash
 cd backend
-./gradlew bootRun        # http://localhost:8082
+./gradlew bootRun          # http://localhost:8082
 ```
+
+On Windows PowerShell that is `.\gradlew.bat bootRun`, and `;` separates
+commands rather than `&&`.
 
 Frontend:
 
 ```bash
 cd frontend
 npm install
-npm run dev              # http://localhost:3000
+npm run dev                # http://localhost:3000
 ```
+
+| | URL |
+|---|---|
+| API | http://localhost:8082/api |
+| Swagger UI | http://localhost:8082/swagger-ui.html |
+| Health | http://localhost:8082/actuator/health |
 
 ## Design decisions
 
