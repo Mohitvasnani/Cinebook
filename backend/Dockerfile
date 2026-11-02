@@ -26,6 +26,26 @@ COPY --from=build /app/build/libs/*.jar app.jar
 USER app
 
 EXPOSE 8082
-# The JVM defaults to a quarter of available memory. On a 512MB box that wastes
-# most of it, so give the heap a deliberate share of the container limit.
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]
+
+# Tuned for a very small container: Render's free instance is 0.1 CPU and
+# 512MB. Each flag earns its place.
+#
+#   MaxRAMPercentage=70   The JVM defaults to a quarter of available memory,
+#                         which wastes most of 512MB. 70 rather than 75 leaves
+#                         room for metaspace, thread stacks and the JVM itself,
+#                         which live outside the heap.
+#   UseSerialGC           G1 runs concurrent collector threads, which is a poor
+#                         trade on a tenth of a core. Serial has the smallest
+#                         footprint and the least overhead at this size.
+#   TieredStopAtLevel=1   Compile with C1 only and never promote to C2. Startup
+#                         gets noticeably cheaper because the JIT does far less
+#                         work; peak throughput is lower, which does not matter
+#                         for a demo serving a handful of requests.
+#   Xss512k               Smaller thread stacks. Tomcat starts around 200
+#                         threads, so the default 1MB each is real memory.
+ENTRYPOINT ["java", \
+  "-XX:MaxRAMPercentage=70", \
+  "-XX:+UseSerialGC", \
+  "-XX:TieredStopAtLevel=1", \
+  "-Xss512k", \
+  "-jar", "/app/app.jar"]
