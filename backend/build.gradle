@@ -41,4 +41,11 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	// Print every test as it runs, not just the failures, and give full stack
+	// traces. Worth it on a project whose headline test is a concurrency one.
+	testLogging {
+		events 'passed', 'skipped', 'failed'
+		exceptionFormat 'full'
+		showStandardStreams = false
+	}
 }
