@@ -5,73 +5,238 @@ the same seat at the same moment, exactly one must win.
 
 The domain is the vehicle. The engineering is the point.
 
-```
-cinebook/
-├── backend/            Java 21, Spring Boot 4, PostgreSQL, Flyway
-├── frontend/           Next.js 16, TypeScript, Tailwind v4
-├── docs/               API contract, architecture, design decisions
-└── docker-compose.yml  local Postgres
+**[Live demo](https://screenbook.vercel.app)** · **[API](https://cinebook-67pa.onrender.com/api/showtimes)** · **[Swagger UI](https://cinebook-67pa.onrender.com/swagger-ui.html)**
+
+> The API runs on a free tier that sleeps after 15 minutes of inactivity. The
+> first request wakes it and takes a few seconds. Everything after that is
+> normal.
+
+---
+
+## The race
+
+[`/race`](https://screenbook.vercel.app/race) fires two hold requests at the
+same seat at the same instant and shows both outcomes side by side. One reads
+`201 WON`, the other `409 LOST`. Every time.
+
+The test that proves it releases eight threads from a `CyclicBarrier` onto one
+seat, against a real PostgreSQL started by Testcontainers:
+
+| | Winners | Rows in `seat_hold` |
+|---|---|---|
+| With the row lock | **1** | 1 |
+| With the lock removed | **8** | 8 |
+
+That second row is the point. A concurrency test that passes proves very
+little, because threads that never overlap pass too. Deleting the lock and
+watching the same test fail is what makes it evidence.
+
+```mermaid
+sequenceDiagram
+    participant A as Request A
+    participant B as Request B
+    participant DB as PostgreSQL
+
+    A->>DB: BEGIN
+    B->>DB: BEGIN
+    A->>DB: SELECT seat ... FOR NO KEY UPDATE
+    Note over A,DB: A holds the row lock
+    B->>DB: SELECT seat ... FOR NO KEY UPDATE
+    Note over B,DB: B blocks here
+    A->>DB: status of seat -> AVAILABLE
+    A->>DB: INSERT seat_hold
+    A->>DB: COMMIT
+    Note over B,DB: lock released, B resumes
+    B->>DB: status of seat -> HELD
+    B-->>B: 409 seat-unavailable
 ```
 
-## Status
+Without the lock, both transactions read `AVAILABLE` before either inserts.
+Neither read is wrong at the moment it happens: PostgreSQL defaults to `READ
+COMMITTED`, where an uncommitted insert by someone else is invisible. That is
+write skew, and no amount of careful application code fixes it, because the
+check and the write are not atomic with respect to each other.
 
-| Part | State |
+## Three mechanisms, each where it fits
+
+| Where | Mechanism | Why that one |
+|---|---|---|
+| Claiming a seat | Row lock, `SELECT ... FOR NO KEY UPDATE` | Contention on one seat is real but lasts under a millisecond. A lock is the cheapest thing that makes the check and the insert atomic. |
+| Confirming a hold | Optimistic, `@Version` on `seat_hold` | A double submit is rare, and two confirmations genuinely are two updates to one row, which is the shape optimistic locking is for. |
+| Releasing a hold | Conditional `UPDATE ... WHERE booked_at IS NULL` | Check and write in one statement. The loser gets zero rows rather than an exception, because "already released" is not an error for a `DELETE`. |
+| The invariant underneath | `UNIQUE (showtime_id, seat_id)` on `booking` | The one rule that must hold even if every line of the application is wrong. |
+
+`FOR NO KEY UPDATE` rather than `FOR UPDATE` is deliberate. Inserting a hold
+takes a `FOR KEY SHARE` lock on its seat row for the foreign key check, and
+`FOR UPDATE` would conflict with that, serialising holds on the same physical
+seat across unrelated showtimes. `FOR NO KEY UPDATE` says "I will update this
+row but not its key", so foreign key checks pass straight through.
+
+## Seat status is derived, never stored
+
+No column anywhere holds `HELD`. A seat is held only while an unconverted,
+unreleased hold has `expires_at > now()`, evaluated per query by a view:
+
+```sql
+CREATE VIEW seat_availability AS
+SELECT st.id AS showtime_id, s.id AS seat_id, s.row_label, s.seat_number,
+       CASE
+         WHEN EXISTS (SELECT 1 FROM booking b
+                       WHERE b.showtime_id = st.id AND b.seat_id = s.id)
+           THEN 'BOOKED'
+         WHEN EXISTS (SELECT 1 FROM seat_hold h
+                       WHERE h.showtime_id = st.id AND h.seat_id = s.id
+                         AND h.booked_at IS NULL AND h.released_at IS NULL
+                         AND h.expires_at > now())
+           THEN 'HELD'
+         ELSE 'AVAILABLE'
+       END AS status
+FROM showtime st
+JOIN seat s ON s.screen_id = st.screen_id;
+```
+
+An expired hold frees its seat the instant it expires, with no sweeper
+involved. A job that deletes old hold rows is then housekeeping, not
+correctness, which is a much better thing to be able to say about a job.
+
+```mermaid
+stateDiagram-v2
+    [*] --> AVAILABLE
+    AVAILABLE --> HELD: POST /api/holds
+    HELD --> AVAILABLE: expires_at passes
+    HELD --> AVAILABLE: DELETE /api/holds/{id}
+    HELD --> BOOKED: POST /api/bookings
+    BOOKED --> [*]
+```
+
+`EXISTS` rather than a left join, because a left join returns one row per match
+and would print a seat twice if two live holds ever existed. Correctness that
+does not depend on a guarantee made somewhere else is worth two extra
+characters.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    U["Browser"]
+    V["Next.js 16<br/>Vercel"]
+    A["Spring Boot 4<br/>Render, Frankfurt"]
+    N[("PostgreSQL 18<br/>Neon, Frankfurt")]
+
+    U -->|"page load"| V
+    U -->|"/api, CORS"| A
+    A -->|"JDBC over TLS"| N
+```
+
+Writes go through JPA entities, because they need the unit of work and the
+version. Reads go through explicit SQL returning records, because the response
+shapes are joins across three and four tables that match no entity, and writing
+the join is clearer than persuading an ORM to produce it.
+
+Entities hold foreign keys as ids rather than as associations. A hold
+references a seat by identity; it does not contain one. The practical effect is
+that there is no lazy loading anywhere, so N+1 queries and
+`LazyInitializationException` are not failure modes this application can have.
+
+## API
+
+Seven endpoints. Full contract in
+[docs/api-contract.md](docs/api-contract.md).
+
+| | |
 |---|---|
-| API contract | Defined, see [docs/api-contract.md](docs/api-contract.md) |
-| Frontend | In progress |
-| Backend | In progress |
+| `GET /api/showtimes` | upcoming screenings with live seat counts |
+| `GET /api/showtimes/{id}/seats` | the seat map, status computed per request |
+| `POST /api/holds` | claim a seat for 300 seconds |
+| `GET /api/holds/{id}` | read a hold and its remaining time |
+| `DELETE /api/holds/{id}` | release early |
+| `POST /api/bookings` | convert a hold into a booking |
+| `GET /api/bookings/{reference}` | read a booking by its `CB-` code |
 
-## Running locally
+Errors are [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem details
+with a distinct `type` URI per case, so clients branch on a stable identifier
+rather than on prose:
 
-Postgres first, from the repository root. Local dev uses a throwaway database
-whose password is `postgres`, so there is nothing to configure. Set `DB_PASSWORD`
-in a `.env` only if you want to override it.
-
-```bash
-docker compose up -d
-docker compose ps          # wait for "healthy"
+```json
+{
+  "type": "https://cinebook.dev/problems/seat-unavailable",
+  "title": "Seat unavailable",
+  "status": 409,
+  "detail": "Seat A1 is already held or booked for this showtime.",
+  "instance": "/api/holds",
+  "seatId": 241
+}
 ```
 
-Backend. Flyway applies the migrations on startup, so there is no separate
-migrate step:
+Catalogue rows use `bigint` ids. Holds and bookings use UUIDv7: a hold id is a
+capability, so it has to be unguessable, and v7 is time ordered so the index
+appends instead of fragmenting the way random v4 does. A booking reference is
+`CB-` plus six characters from an alphabet with no `0`, `1`, `I`, `L`, `O` or
+`U`, because people read references aloud. Money is integer minor units, never
+a float.
+
+## Running it
 
 ```bash
-cd backend
-./gradlew bootRun          # http://localhost:8082
+docker compose up -d                 # PostgreSQL 18 on 5432
+
+cd backend && ./gradlew bootRun      # http://localhost:8082
+cd frontend && npm install && npm run dev   # http://localhost:3000
 ```
 
-On Windows PowerShell that is `.\gradlew.bat bootRun`, and `;` separates
-commands rather than `&&`.
+Flyway applies the migrations on startup, so there is no separate migrate step.
+The frontend runs standalone without a backend: `NEXT_PUBLIC_API_MODE=mock`
+serves the whole flow from a Mock Service Worker in the browser. Environment
+variables are documented in [docs/environment.md](docs/environment.md).
 
-Frontend:
-
-```bash
-cd frontend
-npm install
-npm run dev                # http://localhost:3000
-```
-
-| | URL |
+| | |
 |---|---|
 | API | http://localhost:8082/api |
 | Swagger UI | http://localhost:8082/swagger-ui.html |
 | Health | http://localhost:8082/actuator/health |
 
-## Design decisions
+## Tests
 
-See [docs/api-contract.md](docs/api-contract.md) for the full set. The short version:
+```bash
+cd backend && ./gradlew test
+```
 
-- **Seat status is derived, never stored.** A seat is HELD only while an
-  unconverted hold has `expires_at > now()`. Correctness does not depend on a
-  cleanup job having run.
-- **Optimistic locking (`@Version`) on the seat claim.** Two concurrent holds on
-  one seat produce one `201` and one `409`.
-- **Numeric IDs for catalogue data, UUIDv7 for holds and bookings.** A hold ID
-  is a capability, so it has to be unguessable.
-- **RFC 9457 problem details** for errors, with a distinct `type` URI per case
-  so clients branch on a stable identifier rather than on prose.
-- **Money as integer minor units.** Never a float.
+Integration tests run against a real PostgreSQL in a container, not an
+in-memory substitute, because the behaviour under test is a PostgreSQL row
+lock and an in-memory database would not have it. GitHub Actions runs the same
+suite on every push.
 
-## Architecture
+## Deliberately out of scope
 
-_Diagram to come._
+Deferred with the reasoning recorded, so the omissions read as decisions.
+
+- **Multi-seat holds.** An all-or-nothing claim across N seats is a different
+  and harder problem. The single-seat case already demonstrates the locking.
+- **Idempotency keys.** They matter under real retry pressure, not for proving
+  that the locking works.
+- **Authentication.** There is no user model. A hold id is a bearer capability.
+- **Payment.** `pricePaidMinor` records the price at booking time. No money
+  moves.
+- **GraphQL.** Seven fixed-shape resources with no over-fetching problem, and
+  an error model that depends on the HTTP status codes GraphQL discards.
+
+## Next
+
+- **An exclusion constraint** on `seat_hold`, moving "at most one live hold per
+  seat" from a locking convention into the schema, where no future code path
+  can bypass it. `released_at` already exists for its predicate.
+- **Hexagonal refactor** with ArchUnit enforcing the module boundaries.
+- **Redis** for distributed locking once the service is more than one process.
+- **Prometheus and Grafana**, and a load test with numbers.
+- **Kubernetes and Helm** on Oracle Cloud.
+
+## Stack
+
+| | |
+|---|---|
+| Backend | Java 21, Spring Boot 4.1.1, Hibernate 7, Gradle 9.7 |
+| Database | PostgreSQL 18, Flyway 12, HikariCP |
+| Frontend | Next.js 16.4, React 19, TypeScript, CSS Modules, MSW |
+| Testing | JUnit 5, Testcontainers |
+| Docs | springdoc-openapi, Swagger UI |
+| Infrastructure | Docker multi-stage, GitHub Actions, Render, Neon, Vercel |
