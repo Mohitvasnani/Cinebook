@@ -1,0 +1,20 @@
+# Line endings. Everything is stored LF in the repository and checked out LF,
+# so the same file edited on Windows and on Linux never shows up as a
+# whole-file diff. Without this, git stores whatever bytes the editor happened
+# to write and the history fills with changes that are not changes.
+* text=auto eol=lf
+
+# Except the files that genuinely need CRLF: cmd.exe mangles a .bat with LF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# And the ones that genuinely need LF, which the rule above already gives them,
+# stated explicitly because breaking them is silent and confusing.
+*.sh    text eol=lf
+gradlew text eol=lf
+
+# Binary. Never translate, never diff.
+*.jar  binary
+*.png  binary
+*.jpg  binary
+*.ico  binary
