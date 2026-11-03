@@ -27,13 +27,13 @@ export function SiteHeader() {
         </div>
       </div>
 
-      <p className={IS_MOCK ? styles.bannerDemo : styles.bannerLive}>
+      {/* <p className={IS_MOCK ? styles.bannerDemo : styles.bannerLive}>
         <span className={styles.bannerInner}>
           {IS_MOCK
             ? "Demo mode: showtimes, seats and bookings are mock data kept in this browser."
             : `Live mode: connected to ${API_BASE_URL || "the API"}. Holds and bookings are real.`}
         </span>
-      </p>
+      </p> */}
     </header>
   );
 }
