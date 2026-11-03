@@ -14,7 +14,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - screenbook-pgdata:/var/lib/postgresql/data
+      - screenbook-pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d screenbook"]
       interval: 5s
