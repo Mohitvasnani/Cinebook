@@ -1,12 +1,12 @@
-# Local Postgres for CineBook.
+# Local Postgres for ScreenBook.
 #   cp .env.example .env   (then set DB_PASSWORD)
 #   docker compose up -d
 services:
   postgres:
     image: postgres:18-alpine
-    container_name: cinebook-postgres
+    container_name: screenbook-postgres
     environment:
-      POSTGRES_DB: cinebook
+      POSTGRES_DB: screenbook
       POSTGRES_USER: postgres
       # A local throwaway database, so a well-known dev password is fine and
       # removes a setup step. Real credentials only ever exist in Render/Neon.
@@ -14,12 +14,12 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - cinebook-pgdata:/var/lib/postgresql/data
+      - screenbook-pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d cinebook"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d screenbook"]
       interval: 5s
       timeout: 5s
       retries: 10
 
 volumes:
-  cinebook-pgdata:
+  screenbook-pgdata:

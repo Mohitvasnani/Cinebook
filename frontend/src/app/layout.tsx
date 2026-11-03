@@ -26,7 +26,7 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CineBook",
+  title: "ScreenBook",
   description: "Cinema seat booking: two people claim the same seat, exactly one wins.",
 };
 

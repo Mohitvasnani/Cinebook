@@ -8,7 +8,7 @@ them.
 | Frontend, local | `NEXT_PUBLIC_API_MODE`, `NEXT_PUBLIC_API_URL` |
 | Frontend, Vercel | the same two |
 | Backend, local | `DB_PASSWORD` only; everything else defaults |
-| Backend, Render | `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `CINEBOOK_CORS_ALLOWED_ORIGINS` |
+| Backend, Render | `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `SCREENBOOK_CORS_ALLOWED_ORIGINS` |
 | Neon | none |
 
 Live URLs: frontend <https://screenbook.vercel.app>, API
@@ -52,11 +52,11 @@ Every variable, with the default it falls back to:
 
 | Variable | Default | Notes |
 |---|---|---|
-| `DB_URL` | `jdbc:postgresql://localhost:5432/cinebook` | JDBC form, not the `postgresql://` form Neon hands you |
+| `DB_URL` | `jdbc:postgresql://localhost:5432/screenbook` | JDBC form, not the `postgresql://` form Neon hands you |
 | `DB_USERNAME` | `postgres` | |
 | `DB_PASSWORD` | `postgres` | the only one local development has to set |
 | `PORT` | `8082` | Render injects this; never set it yourself |
-| `CINEBOOK_CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | comma separated |
+| `SCREENBOOK_CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | comma separated |
 
 Local development needs `DB_PASSWORD` and nothing else. Set it as a user-level
 environment variable rather than per shell, and restart the terminal and the
@@ -68,7 +68,7 @@ Render needs four:
 DB_URL                         jdbc:postgresql://ep-blue-star-ban44ub9.c-8.eu-central-1.aws.neon.tech/neondb?sslmode=require
 DB_USERNAME                    neondb_owner
 DB_PASSWORD                    (from the Neon connection string)
-CINEBOOK_CORS_ALLOWED_ORIGINS  http://localhost:3000,https://screenbook.vercel.app
+SCREENBOOK_CORS_ALLOWED_ORIGINS  http://localhost:3000,https://screenbook.vercel.app
 ```
 
 Keep `http://localhost:3000` in that list permanently. It is what lets a local
@@ -76,7 +76,7 @@ frontend talk to the deployed API, which is the most useful debugging setup
 available.
 
 The odd name is Spring Boot's relaxed binding: the property
-`cinebook.cors.allowed-origins` is set by uppercasing it and turning dots and
+`screenbook.cors.allowed-origins` is set by uppercasing it and turning dots and
 dashes into underscores.
 
 ## Neon
@@ -109,7 +109,7 @@ API, so the first deployment is three steps rather than two:
 
 1. Deploy the API. Note its Render URL.
 2. Set `NEXT_PUBLIC_API_URL` to that URL on Vercel and deploy the frontend.
-3. Add the Vercel origin to `CINEBOOK_CORS_ALLOWED_ORIGINS` on Render and save,
+3. Add the Vercel origin to `SCREENBOOK_CORS_ALLOWED_ORIGINS` on Render and save,
    which redeploys.
 
 Between steps 2 and 3 the frontend loads and every API call is blocked by the

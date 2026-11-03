@@ -1,4 +1,4 @@
-# CineBook API Contract
+# ScreenBook API Contract
 
 The document both sides are built against. Written before either side was
 implemented, so the Next.js client and the Spring Boot service agree by
@@ -122,7 +122,7 @@ starts at zero.
 
 ```json
 {
-  "type": "https://cinebook.dev/problems/seat-unavailable",
+  "type": "https://screenbook.dev/problems/seat-unavailable",
   "title": "Seat unavailable",
   "status": 409,
   "detail": "Seat A2 is already held or booked for this showtime.",

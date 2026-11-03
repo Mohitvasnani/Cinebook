@@ -1,4 +1,4 @@
-# CineBook
+# ScreenBook
 
 A cinema seat booking service built around one problem: when two people claim
 the same seat at the same moment, exactly one must win.
@@ -159,7 +159,7 @@ rather than on prose:
 
 ```json
 {
-  "type": "https://cinebook.dev/problems/seat-unavailable",
+  "type": "https://screenbook.dev/problems/seat-unavailable",
   "title": "Seat unavailable",
   "status": 409,
   "detail": "Seat A1 is already held or booked for this showtime.",

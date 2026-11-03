@@ -1,4 +1,4 @@
-# CineBook Design Brief
+# ScreenBook Design Brief
 
 Handoff spec for designing the screens. Describes what each screen is for, what
 data it shows, and every state it has to handle. Visual direction is open; the

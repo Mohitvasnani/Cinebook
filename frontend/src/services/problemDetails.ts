@@ -1,7 +1,7 @@
 /* RFC 9457 problem details. Every failure from the API arrives in this shape,
    so components branch on a stable identifier instead of matching on prose. */
 
-   export const PROBLEM_BASE = "https://cinebook.dev/problems";
+   export const PROBLEM_BASE = "https://screenbook.dev/problems";
 
    export interface ProblemDetail {
      /* URI naming the problem kind, e.g. ".../problems/seat-unavailable" */
