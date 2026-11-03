@@ -13,7 +13,7 @@ export function SiteHeader() {
     <header>
       <div className={styles.bar}>
         <Link href="/" className={styles.wordmark}>
-          Cine<em>book</em>
+          Screen<em>book</em>
         </Link>
 
         <div className={styles.right}>
