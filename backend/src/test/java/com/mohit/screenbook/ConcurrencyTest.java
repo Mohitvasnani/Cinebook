@@ -13,7 +13,13 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import com.mohit.screenbook.booking.BookingResponse;
+import com.mohit.screenbook.booking.IdempotentBookings;
+import com.mohit.screenbook.common.IdempotencyKeyInProgressException;
+import com.mohit.screenbook.common.IdempotencyKeyReusedException;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -53,6 +59,9 @@ class ConcurrencyTest {
 
     @Autowired
     HoldService holds;
+
+    @Autowired
+    IdempotentBookings idempotent;
 
     @Autowired
     BookingService bookings;
@@ -200,6 +209,97 @@ class ConcurrencyTest {
         assertEquals(3, holdSeatRows(hold.holdId()),
                 "hold_seat should contain one row per seat");
     }
+    /**
+     * The point of the whole mechanism: a client that retries because it never
+     * saw the first response gets the original booking back, not a 409.
+     */
+    @Test
+    @DisplayName("confirming twice with one idempotency key returns the same booking")
+    void idempotentReplay() {
+        Target target = someAvailableSeat();
+        HoldResponse hold = holds.claim(target.showtimeId(), List.of(target.seatId()));
+        String key = "replay-" + UUID.randomUUID();
+
+        BookingResponse first = idempotent.confirm(hold.holdId(), key);
+        BookingResponse second = idempotent.confirm(hold.holdId(), key);
+
+        assertEquals(first.bookingReference(), second.bookingReference(),
+                "the retry should return the original booking");
+        assertEquals(1, bookedSeats(target.showtimeId(), target.seatId()),
+                "the retry must not create a second booking");
+    }
+
+    /**
+     * Without the key, the second confirmation is a 409. That is correct and
+     * unhelpful, and it is the behaviour the key exists to improve on, so it is
+     * worth pinning down next to the replay test.
+     */
+    @Test
+    @DisplayName("confirming twice without a key is still a conflict")
+    void withoutKeyStillConflicts() {
+        Target target = someAvailableSeat();
+        HoldResponse hold = holds.claim(target.showtimeId(), List.of(target.seatId()));
+
+        idempotent.confirm(hold.holdId(), null);
+
+        assertThrows(HoldAlreadyConvertedException.class,
+                () -> idempotent.confirm(hold.holdId(), null));
+    }
+
+    /**
+     * A key reused for a different hold is a client bug, so it is reported
+     * rather than quietly replaying a booking the caller did not ask about.
+     */
+    @Test
+    @DisplayName("reusing a key for a different hold is rejected")
+    void keyReuseRejected() {
+        List<Target> pair = availableSeatsInOneShowtime(2);
+        long showtimeId = pair.getFirst().showtimeId();
+
+        HoldResponse first = holds.claim(showtimeId, List.of(pair.get(0).seatId()));
+        HoldResponse second = holds.claim(showtimeId, List.of(pair.get(1).seatId()));
+
+        String key = "reuse-" + UUID.randomUUID();
+        idempotent.confirm(first.holdId(), key);
+
+        assertThrows(IdempotencyKeyReusedException.class,
+                () -> idempotent.confirm(second.holdId(), key));
+    }
+
+    /**
+     * The ordering test. Two retries arriving together must not both do the
+     * work: the key is claimed before the booking runs, so one proceeds and the
+     * other either replays or is told the first is in flight. What must never
+     * happen is two different booking references.
+     *
+     * Both outcomes are legitimate and which one you get depends on timing, so
+     * the assertion is on what cannot happen rather than on which branch won.
+     */
+    @Test
+    @DisplayName("two simultaneous confirmations with one key never produce two bookings")
+    void idempotentConfirmRace() throws Exception {
+        Target target = someAvailableSeat();
+        HoldResponse hold = holds.claim(target.showtimeId(), List.of(target.seatId()));
+        String key = "race-" + UUID.randomUUID();
+
+        List<String> outcomes = runTogether(2, () -> {
+            try {
+                return idempotent.confirm(hold.holdId(), key).bookingReference();
+            } catch (IdempotencyKeyInProgressException e) {
+                return "IN_PROGRESS";
+            }
+        });
+
+        long distinctReferences = outcomes.stream()
+                .filter(outcome -> outcome.startsWith("SB-"))
+                .distinct()
+                .count();
+
+        assertTrue(distinctReferences <= 1,
+                "two different booking references means the key did not serialise them: " + outcomes);
+        assertEquals(1, bookedSeats(target.showtimeId(), target.seatId()),
+                "the database should contain exactly one booked seat");
+    }
 
     /* ------------------------------------------------------------- plumbing */
 
@@ -273,26 +373,62 @@ class ConcurrencyTest {
      * The subquery picks a showtime that has enough of them rather than
      * assuming the first one does.
      */
+    /**
+     * N consecutive available seats in one row, which is what the adjacency
+     * rule now requires of any multi-seat claim.
+     *
+     * The CTE is the standard "gaps and islands" trick: within a row ordered by
+     * seat number, seat_number minus row_number() is constant across a run of
+     * consecutive seats and changes at every gap, so grouping by it groups by
+     * run. HAVING then keeps only runs long enough to use.
+     *
+     * Every caller gets a fresh one. Earlier tests hold seats, those drop out
+     * of the availability view, so each test lands on a different run rather
+     * than fighting over one.
+     */
     private List<Target> availableSeatsInOneShowtime(int howMany) {
-        return jdbc.sql("""
-                        SELECT showtime_id, seat_id
-                        FROM seat_availability
-                        WHERE status = 'AVAILABLE'
-                          AND showtime_id = (
-                              SELECT showtime_id
-                              FROM seat_availability
-                              WHERE status = 'AVAILABLE'
-                              GROUP BY showtime_id
-                              HAVING count(*) >= :howMany
-                              ORDER BY showtime_id
-                              LIMIT 1)
-                        ORDER BY seat_id
-                        LIMIT :howMany
+        List<Long> seatIds = jdbc.sql("""
+                        WITH runs AS (
+                            SELECT showtime_id,
+                                   row_label,
+                                   seat_id,
+                                   seat_number,
+                                   seat_number - row_number() OVER (
+                                       PARTITION BY showtime_id, row_label
+                                       ORDER BY seat_number) AS run_key
+                            FROM seat_availability
+                            WHERE status = 'AVAILABLE')
+                        SELECT array_agg(seat_id ORDER BY seat_number) AS seat_ids
+                        FROM runs
+                        GROUP BY showtime_id, row_label, run_key
+                        HAVING count(*) >= :howMany
+                        ORDER BY min(showtime_id), min(row_label), min(seat_number)
+                        LIMIT 1
                         """)
                 .param("howMany", howMany)
-                .query((rs, rowNum) -> new Target(
-                        rs.getLong("showtime_id"), rs.getLong("seat_id")))
-                .list();
+                .query((rs, rowNum) ->
+                        Arrays.asList((Long[]) rs.getArray("seat_ids").getArray()))
+                .single();
+
+        long showtimeId = showtimeOf(seatIds.getFirst());
+        return seatIds.stream()
+                .limit(howMany)
+                .map(seatId -> new Target(showtimeId, seatId))
+                .toList();
+    }
+
+    /** The run query groups by showtime, so every seat in it shares this one. */
+    private long showtimeOf(long seatId) {
+        return jdbc.sql("""
+                        SELECT showtime_id
+                        FROM seat_availability
+                        WHERE seat_id = :seatId AND status = 'AVAILABLE'
+                        ORDER BY showtime_id
+                        LIMIT 1
+                        """)
+                .param("seatId", seatId)
+                .query(Long.class)
+                .single();
     }
 
     /** Live holds covering one seat. Joins the child, since the seat lives there now. */
@@ -331,4 +467,5 @@ class ConcurrencyTest {
     private static long count(List<String> outcomes, String outcome) {
         return outcomes.stream().filter(outcome::equals).count();
     }
+
 }

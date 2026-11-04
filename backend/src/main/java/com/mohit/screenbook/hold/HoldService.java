@@ -88,9 +88,12 @@ public class HoldService {
            404 rather than a 409: a seat that was never there is a different
            mistake from a seat that has gone. */
         if (rows.size() != ordered.size()) {
+
             throw new NotFoundException(
                     "One or more seats do not belong to showtime %d.".formatted(showtimeId));
         }
+        requireAdjacent(rows);
+
 
         List<UnavailableSeat> unavailable = rows.stream()
                 .filter(row -> row.status() != SeatStatus.AVAILABLE)
@@ -191,6 +194,36 @@ public class HoldService {
                         row.id(), row.rowLabel(), row.seatNumber(),
                         row.tier(), row.priceMinor()))
                 .toList();
+    }
+    /**
+     * One row, no gaps.
+     *
+     * A group books in order to sit together, so six seats scattered across the
+     * house is not a booking anyone actually wants, and allowing it leaves the
+     * house full of unsellable single gaps.
+     *
+     * Aisles deliberately do NOT break a run: seats 3 and 4 have a walking
+     * aisle between them and still count as neighbours. Treating the aisle as a
+     * break would confine every group of four or more to the six-wide centre
+     * block, which is a worse outcome than two of them stepping over an aisle.
+     *
+     * Duplicates are already rejected above, so a run of n distinct seat
+     * numbers is contiguous exactly when max - min + 1 == n.
+     */
+    private static void requireAdjacent(List<SeatView> rows) {
+        if (rows.size() == 1) return;
+
+        String row = rows.getFirst().rowLabel();
+        if (rows.stream().anyMatch(seat -> !seat.rowLabel().equals(row))) {
+            throw new ValidationFailedException("Seats must all be in the same row.");
+        }
+
+        int lowest = rows.stream().mapToInt(SeatView::seatNumber).min().orElseThrow();
+        int highest = rows.stream().mapToInt(SeatView::seatNumber).max().orElseThrow();
+        if (highest - lowest + 1 != rows.size()) {
+            throw new ValidationFailedException(
+                    "Seats must be next to each other, with no gaps between them.");
+        }
     }
 
     private static int total(List<SeatView> rows) {

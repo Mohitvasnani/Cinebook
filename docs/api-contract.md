@@ -148,6 +148,21 @@ rather than quietly collapsed to `[5, 7]`. Deduping would hide the bug in
 whatever built the request and make "how many seats did you ask for" ambiguous
 in every message that follows.
 
+**The seats must be adjacent:** all in one row, with no gaps. A group books in
+order to sit together, so scattered seats are not a booking anyone wants, and
+allowing them leaves the house full of unsellable single gaps.
+
+Aisles deliberately do not break a run. Seats 3 and 4 have a walking aisle
+between them and still count as neighbours, because treating the aisle as a
+break would confine every group of four or more to the six-wide centre block.
+Two people stepping over an aisle is a better outcome than a family of five
+being told there is nowhere to sit.
+
+The cost of this rule is worth stating: on a busy screening where no row has
+six free seats in a row, a group of six cannot book at all. A softer rule, free
+choice but no orphan seats left stranded, would sell more seats and take more
+code. This project took the strict version deliberately.
+
 **201**, with `Location: /api/holds/{holdId}`
 
 ```json
@@ -213,7 +228,8 @@ conflict UI and the server's rollback both depend on it. Four decisions in it:
   client that has not been updated is already broken; one break is better than a
   compatibility shim nobody will ever remove.
 
-**422** validation failure: an empty `seatIds`, more than 6, or a repeated seat.
+**422** validation failure: an empty `seatIds`, more than 6, a repeated seat,
+seats in different rows, or a gap between them.
 The detail names the cap when the cap is what failed.
 
 **404** unknown showtime, or a seat id that does not exist in that showtime's

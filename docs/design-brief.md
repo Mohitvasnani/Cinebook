@@ -201,8 +201,12 @@ Worth spending the effort here. Everything else is straightforward.
 
 1. **120 seats at 375px wide.** Twelve seats across leaves roughly 26px each
    including gutters. Decide: scale down, scroll horizontally, or zoom.
-   **Settled:** one scaled view at every width. A zoom step would give bigger
-   touch targets but adds a navigation mode to the one screen that matters.
+   **Settled, then revisited:** one scaled view was the first answer, on the
+   grounds that a zoom step adds a navigation mode to the one screen that
+   matters. Multi-seat selection changed the facts: picking one seat at 26px is
+   fine, picking six in a row is fiddly. There are now two views, Fit and Zoom,
+   with Fit the default because "where is there space" is the first question
+   and Zoom answering "can I hit the one I want".
 2. **Four seat states without relying on colour.** Red and green is the obvious
    choice and the worst one. Shape, fill pattern, border weight, opacity or a
    glyph has to carry the meaning too.
@@ -234,6 +238,10 @@ These come from the API and changing them means changing the backend.
 - **One to six seats per hold, all or nothing.** The cap is enforced by the
   server, not just the UI. If any seat is lost between choosing and holding,
   nothing is held, and the 409 names which seats went and what state each is in
+- **Seats must be adjacent:** one row, no gaps. Aisles do not break a run, so
+  seats 3 and 4 count as neighbours. Enforced by the server as well as the UI.
+  The consequence is accepted rather than overlooked: on a busy screening a
+  group may find no row with enough seats together and be unable to book
 - Prices in GBP
 - Three seat tiers: rows A to E Normal, F to H Premium, I to J Executive. The
   tier arrives on every seat from the API, so the client never derives it from
