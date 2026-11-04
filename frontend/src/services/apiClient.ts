@@ -57,10 +57,13 @@
      releaseHold: (holdId: string) =>
        request<void>(`/holds/${holdId}`, { method: "DELETE" }),
    
-     createBooking: (holdId: string) =>
+          /* The key makes this safe to retry: if the response is lost, sending the
+        same key again returns the original booking rather than a 409. */
+     createBooking: (holdId: string, idempotencyKey?: string) =>
        request<Booking>("/bookings", {
          method: "POST",
          body: JSON.stringify({ holdId }),
+         headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {},
        }),
    
      getBooking: (reference: string) => request<Booking>(`/bookings/${reference}`),

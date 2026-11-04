@@ -331,3 +331,19 @@ function newBookingReference(): string {
 export function remainingSeconds(expiresAt: number): number {
   return Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
 }
+
+/* ------------------------------------------------------- idempotency keys */
+
+/* Mirrors the idempotency_key table. No in-progress state: JavaScript handles
+   one request at a time here, so the window the real server has to guard
+   against cannot open. */
+const idempotencyKeys = new Map<string, { requestHash: string; reference: string }>();
+
+export const findIdempotency = (idempotencyKey: string) =>
+  idempotencyKeys.get(idempotencyKey);
+
+export const rememberIdempotency = (
+  idempotencyKey: string,
+  requestHash: string,
+  reference: string,
+) => idempotencyKeys.set(idempotencyKey, { requestHash, reference });

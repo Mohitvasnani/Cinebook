@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { HoldCountdown } from "@/components/HoldCountdown";
 import styles from "@/css/CheckoutScreen.module.css";
@@ -14,6 +14,17 @@ import { dayAndTime, money, seatNames } from "@/utils/format";
 export function CheckoutScreen() {
   const router = useRouter();
   const holdId = String(useParams().holdId);
+  /* One key per hold, generated once and reused for every Confirm press on
+     this screen. That is the whole point: a retry has to carry the same key as
+     the attempt it is retrying, or the server sees two unrelated requests.
+
+     Kept in a ref rather than state because it is not rendered, and keyed on
+     holdId so navigating to a different hold cannot inherit the old key. */
+  const keyRef = useRef<{ holdId: string; key: string } | null>(null);
+  if (keyRef.current?.holdId !== holdId) {
+    keyRef.current = { holdId, key: crypto.randomUUID() };
+  }
+  const idempotencyKey = keyRef.current.key;
 
   const [expired, setExpired] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -36,15 +47,22 @@ export function CheckoutScreen() {
      hold was already past it when the page loaded. */
   const isOver = expired || hold?.status === "EXPIRED";
 
-  async function confirm() {
+   async function confirm() {
     setBusy(true);
     setProblem(null);
     try {
-      const booking = await api.createBooking(holdId);
+      const booking = await api.createBooking(holdId, idempotencyKey);
       router.push(`/bookings/${booking.bookingReference}`);
     } catch (err) {
-      if (err instanceof ApiError && err.is("hold-expired")) setExpired(true);
-      else setProblem("Could not confirm. Try again.");
+      if (err instanceof ApiError && err.is("hold-expired")) {
+        setExpired(true);
+      } else if (err instanceof ApiError && err.is("idempotency-key-in-progress")) {
+        /* The previous press is still being processed. Not a failure, so this
+           says so rather than suggesting something went wrong. */
+        setProblem("Still confirming. Give it a second and press Confirm again.");
+      } else {
+        setProblem("Could not confirm. Try again.");
+      }
       setBusy(false);
     }
   }

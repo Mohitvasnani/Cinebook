@@ -19,9 +19,11 @@ import type {
 import {
   createBooking,
   createHold,
+  findIdempotency,
   findShowtime,
   getBooking,
   getHoldRecord,
+  rememberIdempotency,
   releaseHold,
   remainingSeconds,
   seatMapFor,
@@ -230,7 +232,7 @@ export const handlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 
-  http.post("/api/bookings", async ({ request }) => {
+    http.post("/api/bookings", async ({ request }) => {
     await delay(LATENCY_MS);
 
     let payload: { holdId?: unknown };
@@ -244,7 +246,31 @@ export const handlers = [
       return invalid("/api/bookings", "holdId is required.");
     }
 
-    const outcome = createBooking(payload.holdId);
+    const holdId = payload.holdId;
+    const key = request.headers.get("Idempotency-Key");
+
+    /* The hash is over the one meaningful field, same as the service. */
+    if (key) {
+      const seen = findIdempotency(key);
+      if (seen) {
+        if (seen.requestHash !== holdId) {
+          return problemResponse(
+            problem(
+              "idempotency-key-reused",
+              422,
+              "Idempotency key reused",
+              "That Idempotency-Key was already used for a different request. Use a new key.",
+              "/api/bookings",
+            ),
+          );
+        }
+        /* Replay. Re-read rather than store a body: a booking never changes. */
+        const existing = getBooking(seen.reference);
+        if (existing) return HttpResponse.json(existing, { status: 201 });
+      }
+    }
+
+    const outcome = createBooking(holdId);
 
     if (!outcome.ok) {
       switch (outcome.reason) {
@@ -269,8 +295,12 @@ export const handlers = [
             ),
           );
         default:
-          return notFound("/api/bookings", `No hold with id ${payload.holdId}.`);
+          return notFound("/api/bookings", `No hold with id ${holdId}.`);
       }
+    }
+
+    if (key) {
+      rememberIdempotency(key, holdId, outcome.booking.bookingReference);
     }
 
     return HttpResponse.json(outcome.booking, { status: 201 });
