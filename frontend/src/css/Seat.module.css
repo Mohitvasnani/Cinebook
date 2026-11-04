@@ -99,7 +99,7 @@
    survives greyscale without reading the cross-aisle label. */
 .headrest {
   position: absolute;
-  top: 12%;
+  bottom: 12%;
   left: 28%;
   right: 28%;
   height: 8%;
@@ -110,7 +110,7 @@
 
 .arm {
   position: absolute;
-  bottom: 12%;
+  top: 12%;
   height: 42%;
   width: 9%;
   min-width: 1.5px;

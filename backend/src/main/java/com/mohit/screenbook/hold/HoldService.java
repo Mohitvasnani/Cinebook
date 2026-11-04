@@ -1,20 +1,25 @@
 package com.mohit.screenbook.hold;
 
-import com.mohit.screenbook.catalogue.Seat;
 import com.mohit.screenbook.catalogue.SeatMapQuery;
 import com.mohit.screenbook.catalogue.SeatRepository;
 import com.mohit.screenbook.catalogue.SeatStatus;
+import com.mohit.screenbook.catalogue.SeatView;
+import com.mohit.screenbook.common.HoldAlreadyConvertedException;
 import com.mohit.screenbook.common.NotFoundException;
-import com.mohit.screenbook.common.SeatUnavailableException;
+import com.mohit.screenbook.common.SeatsUnavailableException;
+import com.mohit.screenbook.common.UnavailableSeat;
+import com.mohit.screenbook.common.ValidationFailedException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.mohit.screenbook.common.HoldAlreadyConvertedException;
-import java.util.UUID;
 
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
 @Service
 public class HoldService {
@@ -35,60 +40,124 @@ public class HoldService {
     }
 
     /**
-     * Claims one seat for the TTL.
+     * Claims one to six seats for the TTL, all or nothing.
      *
-     * The three steps have to happen in this order and inside one transaction.
-     * Locking the seat row first means that between our availability check and
-     * our insert, no other transaction can run its own check for this seat.
-     * The loser blocks on the lock, wakes up after the winner commits, sees the
-     * seat is now HELD, and gets a 409.
+     * Locks first, then checks, then inserts, all in one transaction. Locking
+     * the seat rows before reading availability means that between our check
+     * and our insert, no other transaction can run its own check for those
+     * seats. A loser blocks on the lock, wakes up after the winner commits,
+     * sees the seats are now HELD, and gets a 409.
+     *
+     * The locks are taken in ascending seat id order, and that is the whole
+     * reason this does not deadlock. Two requests for [5, 9] and [9, 5] taken
+     * in the order asked would each hold one seat and wait for the other, and
+     * Postgres would break the tie a second later by killing one with SQLSTATE
+     * 40P01. A global order makes the cycle unformable: the second request
+     * blocks on the lowest seat before it holds anything at all.
+     *
+     * One lock per statement rather than one IN query, because ORDER BY
+     * describes the order rows are returned, not the order they are locked.
+     * The lock step can sit below the sort in the plan, so a plan change could
+     * silently reintroduce the deadlock. Six round trips inside one
+     * transaction is a cheap price for an order that is actually guaranteed.
      */
     @Transactional
-    public HoldResponse claim(long showtimeId, long seatId) {
+    public HoldResponse claim(long showtimeId, List<Long> seatIds) {
 
-        // 1. Lock. Doubles as proof the seat exists.
-        Seat seat = seats.findByIdForUpdate(seatId)
-                .orElseThrow(() -> new NotFoundException(
-                        "No seat with id %d.".formatted(seatId)));
-
-        // 2. Read availability inside the lock. The view joins seat to showtime
-        //    on screen_id, so a seat that is not in this showtime's screen, or
-        //    an unknown showtime, returns no row and 404s here.
-        SeatStatus status = seatMap.statusOf(showtimeId, seatId);
-        if (status != SeatStatus.AVAILABLE) {
-            throw new SeatUnavailableException(seatId, seat.label());
+        /* A repeated seat is a client bug, not a conflict, so it is rejected
+           rather than deduped. Reported as a validation failure because that is
+           what it is: the same category as asking for seven seats. */
+        Set<Long> distinct = new LinkedHashSet<>(seatIds);
+        if (distinct.size() != seatIds.size()) {
+            throw new ValidationFailedException("seatIds must not repeat a seat.");
         }
 
-        // 3. Insert. The lock is released when this transaction commits.
+        // 1. Lock, in ascending id order. Doubles as proof each seat exists.
+        List<Long> ordered = distinct.stream().sorted().toList();
+        for (Long seatId : ordered) {
+            seats.findByIdForUpdate(seatId)
+                    .orElseThrow(() -> new NotFoundException(
+                            "No seat with id %d.".formatted(seatId)));
+        }
+
+        // 2. Read availability and prices inside the locks, in one query.
+        List<SeatView> rows = seatMap.seatsByIds(showtimeId, ordered);
+
+        /* The view joins seat to showtime on screen_id, so a seat that is not
+           in this showtime's screen returns no row at all. Missing rows are a
+           404 rather than a 409: a seat that was never there is a different
+           mistake from a seat that has gone. */
+        if (rows.size() != ordered.size()) {
+            throw new NotFoundException(
+                    "One or more seats do not belong to showtime %d.".formatted(showtimeId));
+        }
+
+        List<UnavailableSeat> unavailable = rows.stream()
+                .filter(row -> row.status() != SeatStatus.AVAILABLE)
+                .map(row -> new UnavailableSeat(
+                        row.id(), row.rowLabel(), row.seatNumber(), row.status().name()))
+                .toList();
+
+        /* All or nothing. Throwing here means nothing was written, so the
+           rollback has nothing to undo; @Transactional is the backstop rather
+           than the mechanism. */
+        if (!unavailable.isEmpty()) {
+            throw new SeatsUnavailableException(seatIds.size(), unavailable);
+        }
+
+        // 3. Insert. The locks are released when this transaction commits.
         Instant now = clock.instant();
-        SeatHold hold = holds.save(SeatHold.claim(showtimeId, seatId, now, ttl));
+        SeatHold hold = holds.save(SeatHold.claim(showtimeId, ordered, now, ttl));
 
         return new HoldResponse(
-                hold.getId(), showtimeId, seatId,
-                seat.getRowLabel(), seat.getSeatNumber(),
+                hold.getId(), showtimeId,
+                seatViews(rows), total(rows), rows.getFirst().currency(),
                 hold.getExpiresAt(), ttl.toSeconds());
     }
+
+    /**
+     * One hold, so the client's URL survives a refresh.
+     *
+     * The seats come from the hold's own collection, which is lazy: this method
+     * is transactional and with spring.jpa.open-in-view=false the collection
+     * has to be read before the transaction ends. Reading it here rather than
+     * in the controller is what keeps that true.
+     *
+     * The prices come from the view, so they are today's prices rather than the
+     * ones quoted when the hold was taken. Those only differ if a showtime's
+     * base price changes mid-hold, and a hold lasts five minutes. The booking
+     * is where the price is frozen, because that is the one that records what
+     * was charged.
+     */
     @Transactional(readOnly = true)
     public HoldDetailResponse get(UUID holdId) {
         SeatHold hold = holds.findById(holdId)
                 .orElseThrow(() -> new NotFoundException(
                         "No hold with id %s.".formatted(holdId)));
 
-        Seat seat = seats.findById(hold.getSeatId())
-                .orElseThrow(() -> new IllegalStateException(
-                        "Hold %s references a seat that does not exist".formatted(holdId)));
+        List<Long> seatIds = hold.getSeats().stream()
+                .map(HoldSeat::getSeatId)
+                .sorted()
+                .toList();
+
+        List<SeatView> rows = seatMap.seatsByIds(hold.getShowtimeId(), seatIds);
+        if (rows.size() != seatIds.size()) {
+            throw new IllegalStateException(
+                    "Hold %s references seats that do not exist".formatted(holdId));
+        }
 
         Instant now = clock.instant();
         return new HoldDetailResponse(
-                hold.getId(), hold.getShowtimeId(), hold.getSeatId(),
-                seat.getRowLabel(), seat.getSeatNumber(),
+                hold.getId(), hold.getShowtimeId(),
+                seatViews(rows), total(rows), rows.getFirst().currency(),
                 hold.getExpiresAt(), hold.remainingSeconds(now),
                 apiStatus(hold.stateAt(now)));
     }
 
     /**
-     * Hands a seat back early rather than leaving it locked for the rest of its
-     * five minutes.
+     * Hands seats back early rather than leaving them locked for the rest of
+     * their five minutes. One hold, one release: there is no releasing a single
+     * seat out of a hold, because a hold is atomic in both directions.
      */
     @Transactional
     public void release(UUID holdId) {
@@ -109,9 +178,23 @@ public class HoldService {
                     "That hold is already a booking and cannot be released.");
         }
 
-        /* Expired or already released. The seat is free, which is what the
+        /* Expired or already released. The seats are free, which is what the
            caller wanted, so DELETE reports success instead of inventing a
            conflict. Deleting something already gone is not a failure. */
+    }
+
+    /* Rows arrive ordered by row then seat number from the query, so this
+       preserves display order rather than deciding it. */
+    private static List<HeldSeatView> seatViews(List<SeatView> rows) {
+        return rows.stream()
+                .map(row -> new HeldSeatView(
+                        row.id(), row.rowLabel(), row.seatNumber(),
+                        row.tier(), row.priceMinor()))
+                .toList();
+    }
+
+    private static int total(List<SeatView> rows) {
+        return rows.stream().mapToInt(SeatView::priceMinor).sum();
     }
 
     private static HoldStatus apiStatus(SeatHold.State state) {

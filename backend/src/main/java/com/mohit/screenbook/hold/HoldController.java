@@ -27,7 +27,7 @@ public class HoldController {
 
     @PostMapping
     public ResponseEntity<HoldResponse> create(@Valid @RequestBody CreateHoldRequest request) {
-        HoldResponse hold = holds.claim(request.showtimeId(), request.seatId());
+        HoldResponse hold = holds.claim(request.showtimeId(), request.seatIds());
         return ResponseEntity
                 .created(URI.create("/api/holds/" + hold.holdId()))
                 .body(hold);

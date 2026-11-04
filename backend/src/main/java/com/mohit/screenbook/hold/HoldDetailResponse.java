@@ -1,19 +1,23 @@
 package com.mohit.screenbook.hold;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 /**
- * Unlike the 201 body, ttlSeconds here is the time remaining, so it shrinks
- * across calls. Duplicates HoldResponse's fields because records cannot extend
- * records, which is the price of them being final value types.
+ * HoldResponse plus the hold's current state, for GET /api/holds/{holdId}.
+ * One status for the whole hold, not one per seat.
+ *
+ * ttlSeconds here is the time actually remaining, not the full TTL, so a
+ * checkout screen reloaded four minutes in shows a minute left rather than
+ * five.
  */
 public record HoldDetailResponse(
         UUID holdId,
         long showtimeId,
-        long seatId,
-        String rowLabel,
-        int seatNumber,
+        List<HeldSeatView> seats,
+        int totalMinor,
+        String currency,
         Instant expiresAt,
         long ttlSeconds,
         HoldStatus status

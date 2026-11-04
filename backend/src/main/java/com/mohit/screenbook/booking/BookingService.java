@@ -1,10 +1,11 @@
 package com.mohit.screenbook.booking;
 
 import com.mohit.screenbook.catalogue.SeatMapQuery;
-import com.mohit.screenbook.catalogue.SeatPrice;
+import com.mohit.screenbook.catalogue.SeatView;
 import com.mohit.screenbook.common.HoldAlreadyConvertedException;
 import com.mohit.screenbook.common.HoldExpiredException;
 import com.mohit.screenbook.common.NotFoundException;
+import com.mohit.screenbook.hold.HoldSeat;
 import com.mohit.screenbook.hold.SeatHold;
 import com.mohit.screenbook.hold.SeatHoldRepository;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -14,7 +15,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class BookingService {
@@ -35,12 +39,16 @@ public class BookingService {
     }
 
     /**
-     * Converts a hold into a booking.
+     * Converts a hold into a booking, every seat on it or none.
      *
      * The state check below is the readable rule; it is not what makes this
      * safe. Two requests can both read an ACTIVE hold before either writes.
      * What makes it safe is @Version on the hold: the UPDATE carries
      * AND version = ?, so the second writer affects zero rows and loses.
+     *
+     * One version check covers the whole hold however many seats it holds,
+     * which is the payoff of keeping the seats as an owned collection rather
+     * than the inverse side of a @OneToMany.
      */
     @Transactional
     public BookingResponse confirm(UUID holdId) {
@@ -58,19 +66,33 @@ public class BookingService {
             throw new HoldExpiredException();
         }
 
-        /* The seat's own price, not the showtime's base. After V6 an Executive
-           seat costs base + 500, so reading the showtime here would charge the
-           Normal price for every seat in the house. This is also the lookup
-           that proves the hold's showtime and seat still exist. */
-        SeatPrice price = seatMap.priceOf(hold.getShowtimeId(), hold.getSeatId());
+        /* Read inside this transaction: the hold's seats are a lazy collection
+           and spring.jpa.open-in-view=false closes the persistence context at
+           the transaction boundary. */
+        List<Long> seatIds = hold.getSeats().stream()
+                .map(HoldSeat::getSeatId)
+                .sorted()
+                .toList();
+
+        /* Each seat's own price, not the showtime's base. One query for all of
+           them, from the same view the seat map reads, so what was displayed
+           and what gets charged come from one definition. */
+        List<SeatView> rows = seatMap.seatsByIds(hold.getShowtimeId(), seatIds);
+        if (rows.size() != seatIds.size()) {
+            throw new IllegalStateException(
+                    "Hold %s references seats that do not exist".formatted(holdId));
+        }
+
+        Map<Long, Integer> prices = rows.stream()
+                .collect(Collectors.toMap(SeatView::id, SeatView::priceMinor));
 
         hold.markBooked(now);
 
-        /* Price and currency are copied, not referenced. They record what was
+        /* Prices and currency are copied, not referenced. They record what was
            charged, so a later price change does not rewrite history. */
         Booking booking = Booking.of(
-                hold.getId(), hold.getShowtimeId(), hold.getSeatId(),
-                price.priceMinor(), price.currency(),
+                hold.getId(), hold.getShowtimeId(),
+                prices, rows.getFirst().currency(),
                 BookingReference.generate(), now);
 
         try {
@@ -85,10 +107,10 @@ public class BookingService {
             throw new HoldAlreadyConvertedException(
                     "That hold has already been converted into a booking.");
         } catch (DataIntegrityViolationException e) {
-            /* The backstop fired: either UNIQUE (hold_id) or
-               UNIQUE (showtime_id, seat_id) on booking. Reaching here means the
-               version check above was bypassed somehow, so the database saved
-               us. Same answer to the client either way. */
+            /* The backstop fired: UNIQUE (hold_id) on booking, or
+               UNIQUE (showtime_id, seat_id) on booking_seat. Reaching here
+               means the version check above was bypassed somehow, so the
+               database saved us. Same answer to the client either way. */
             throw new HoldAlreadyConvertedException(
                     "That hold has already been converted into a booking.");
         }

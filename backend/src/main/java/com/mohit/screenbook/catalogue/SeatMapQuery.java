@@ -4,7 +4,7 @@ import com.mohit.screenbook.common.NotFoundException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
-
+import java.util.Collection;
 import java.util.List;
 
 @Repository
@@ -17,7 +17,14 @@ public class SeatMapQuery {
             WHERE showtime_id = :showtimeId
             ORDER BY row_label, seat_number
             """;
-
+    private static final String SEATS_BY_ID = """
+            SELECT seat_id, row_label, seat_number, status,
+                   tier, tier_name, price_minor, currency
+            FROM seat_availability
+            WHERE showtime_id = :showtimeId
+              AND seat_id IN (:seatIds)
+            ORDER BY row_label, seat_number
+            """;
     private static final String SEAT_PRICE = """
             SELECT price_minor, currency
             FROM seat_availability
@@ -81,6 +88,7 @@ public class SeatMapQuery {
                         "No seat with id %d for showtime %d.".formatted(seatId, showtimeId)));
     }
 
+
     /**
      * What this seat costs for this showtime. Like statusOf, deliberately has
      * no @Transactional: it is called from inside the booking transaction and
@@ -97,6 +105,34 @@ public class SeatMapQuery {
                 .orElseThrow(() -> new IllegalStateException(
                         "Hold references seat %d / showtime %d, which the seat map does not have"
                                 .formatted(seatId, showtimeId)));
+    }
+    /**
+     * Several seats at once, with their status and price. One query rather than
+     * one per seat, and ordered for display, so the claim path gets its
+     * availability check and its response data from the same read.
+     *
+     * No @Transactional, same reason as statusOf: this runs inside the claim
+     * transaction, after it has locked the seat rows, and must read what that
+     * transaction can see.
+     *
+     * Fewer rows than seat ids means a seat id that is not in this showtime's
+     * screen. The caller decides what that is: here it is a 404, because a seat
+     * that was never there is a different mistake from a seat that has gone.
+     */
+    public List<SeatView> seatsByIds(long showtimeId, Collection<Long> seatIds) {
+        return jdbc.sql(SEATS_BY_ID)
+                .param("showtimeId", showtimeId)
+                .param("seatIds", seatIds)
+                .query((rs, rowNum) -> new SeatView(
+                        rs.getLong("seat_id"),
+                        rs.getString("row_label"),
+                        rs.getInt("seat_number"),
+                        SeatStatus.valueOf(rs.getString("status")),
+                        rs.getString("tier"),
+                        rs.getString("tier_name"),
+                        rs.getInt("price_minor"),
+                        rs.getString("currency")))
+                .list();
     }
 
     private boolean showtimeExists(long showtimeId) {

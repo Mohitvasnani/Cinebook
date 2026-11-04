@@ -30,10 +30,11 @@
     align-self: start;
   }
   
-  .summary {
-    padding: 20px;
-    border: 1px solid var(--color-divider);
-    border-radius: var(--radius);
+   .summary {
+    padding: 22px;
+    border: 1px solid var(--color-n400);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
   }
   
   .kicker {
@@ -64,25 +65,42 @@
   }
   
   /* Outlined, never filled. The design system is explicit about that. */
+    /* Solid ivory, per the Button row on the Foundations artboard. There is one
+     action on this screen and the filled button is how it says so; coral is
+     kept for urgency (the countdown) rather than spent here. */
   .hold {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 100%;
+    height: 52px;
     margin-top: 20px;
-    padding: 12px 20px;
-    border: 1px solid var(--color-accent);
-    border-radius: var(--radius);
-    background: none;
-    color: var(--color-accent-deep);
-    font-size: 15px;
+    padding: 0 22px;
+    border: 0;
+    border-radius: 12px;
+    background: var(--color-ink);
+    color: var(--color-bg);
+    font-size: 16px;
+    font-weight: 600;
     cursor: pointer;
-    transition: background-color 120ms ease;
+    transition:
+      background-color 120ms ease,
+      transform 120ms ease,
+      box-shadow 120ms ease;
   }
-  
+
   .hold:hover:enabled {
-    background: var(--color-accent-tint);
+    background: #ffffff;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(242, 238, 230, 0.18);
   }
-  
+
+  /* Disabled is a dashed outline, not a faded fill: it reads as "nothing to do
+     yet" rather than as a button that failed to load. */
   .hold:disabled {
-    opacity: 0.45;
+    border: 1px dashed var(--color-line-strong);
+    background: var(--color-surface);
+    color: var(--color-n500);
     cursor: not-allowed;
   }
   

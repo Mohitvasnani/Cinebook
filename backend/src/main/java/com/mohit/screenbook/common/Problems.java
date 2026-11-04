@@ -10,8 +10,7 @@ public final class Problems {
     public static final String BASE = "https://screenbook.dev/problems";
 
     public static final String NOT_FOUND = BASE + "/not-found";
-    public static final String SEAT_UNAVAILABLE = BASE + "/seat-unavailable";
-    public static final String HOLD_EXPIRED = BASE + "/hold-expired";
+    public static final String SEATS_UNAVAILABLE = BASE + "/seats-unavailable";    public static final String HOLD_EXPIRED = BASE + "/hold-expired";
     public static final String HOLD_ALREADY_CONVERTED = BASE + "/hold-already-converted";
     public static final String VALIDATION_FAILED = BASE + "/validation-failed";
 

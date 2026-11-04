@@ -1,14 +1,20 @@
 package com.mohit.screenbook.hold;
 
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -17,7 +23,7 @@ public class SeatHold {
 
     /**
      * RELEASED is internal. The API reports it as EXPIRED, because from the
-     * client's point of view the outcome is identical: the seat is free and
+     * client's point of view the outcome is identical: the seats are free and
      * you start again.
      */
     public enum State { ACTIVE, EXPIRED, CONVERTED, RELEASED }
@@ -29,8 +35,31 @@ public class SeatHold {
     @Column(name = "showtime_id", nullable = false, updatable = false)
     private Long showtimeId;
 
-    @Column(name = "seat_id", nullable = false, updatable = false)
-    private Long seatId;
+    /**
+     * The seats this hold covers, one to six of them.
+     *
+     * @ElementCollection stores a collection of value types in a table of
+     * their own; @CollectionTable names that table and the column pointing
+     * back here. A Set rather than a List because the table's primary key is
+     * (hold_id, seat_id), so a seat cannot appear twice, and a List without an
+     * @OrderColumn would be a Hibernate "bag" with no guaranteed order anyway.
+     *
+     * Element collections are rewritten wholesale when they change: Hibernate
+     * deletes every row for the parent and reinserts. That is a real trap in
+     * general and harmless here, because a hold's seats are fixed at the
+     * moment of claim and never change, so the expensive path never runs.
+     *
+     * LAZY by default, which is correct. With spring.jpa.open-in-view=false
+     * this has to be read inside the transaction that loaded the hold. Making
+     * it EAGER would drag the seat rows on every findById, including the
+     * booking path that only needs the ids.
+     */
+    @ElementCollection
+    @CollectionTable(
+            name = "hold_seat",
+            joinColumns = @JoinColumn(name = "hold_id")
+    )
+    private Set<HoldSeat> seats = new LinkedHashSet<>();
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -44,26 +73,52 @@ public class SeatHold {
     @Column(name = "released_at")
     private Instant releasedAt;
 
+    /**
+     * One version for the whole hold, however many seats it covers. The
+     * conversion's UPDATE carries AND version = ?, so a second writer affects
+     * zero rows and loses. Keeping this on the parent is the reason the seats
+     * are an owned collection and not the inverse side of a @OneToMany: with
+     * mappedBy, changes to the children would not touch this column and the
+     * lock would be weaker than it looks.
+     */
     @Version
     private long version;
 
     protected SeatHold() {
     }
 
-    /** The only way to create a hold. */
-    public static SeatHold claim(Long showtimeId, Long seatId, Instant now, Duration ttl) {
+    /**
+     * The only way to create a hold.
+     *
+     * The empty check is a backstop, not the error path: CreateHoldRequest's
+     * @Size(min = 1, max = 6) rejects it over HTTP long before this runs, so
+     * this firing means a bug in a caller rather than a user mistake. A hold
+     * with no seats is nonsense and should be unconstructable.
+     */
+    public static SeatHold claim(Long showtimeId, Collection<Long> seatIds,
+                                 Instant now, Duration ttl) {
+        if (seatIds == null || seatIds.isEmpty()) {
+            throw new IllegalArgumentException("A hold must cover at least one seat");
+        }
+
         SeatHold hold = new SeatHold();
         hold.showtimeId = showtimeId;
-        hold.seatId = seatId;
         hold.createdAt = now;
         hold.expiresAt = now.plus(ttl);
+        for (Long seatId : seatIds) {
+            /* The showtime is copied into each child so the row satisfies the
+               composite foreign key. The parent is the only thing that knows
+               it, which is why the children are built here and nowhere else. */
+            hold.seats.add(HoldSeat.of(seatId, showtimeId));
+        }
         return hold;
     }
 
     /**
      * The whole state machine, in one expression. Nothing stores the state;
      * it is worked out from three timestamps, which is the same rule the
-     * availability query applies in SQL.
+     * availability query applies in SQL. One state for the hold, not one per
+     * seat: a hold expires whole and converts whole.
      */
     public State stateAt(Instant now) {
         if (bookedAt != null) return State.CONVERTED;
@@ -100,7 +155,17 @@ public class SeatHold {
 
     public UUID getId() { return id; }
     public Long getShowtimeId() { return showtimeId; }
-    public Long getSeatId() { return seatId; }
     public Instant getExpiresAt() { return expiresAt; }
     public long getVersion() { return version; }
+
+    /**
+     * Unmodifiable, so nothing can add a seat to a hold after it was claimed.
+     * No ordering guarantee: the rows come back in whatever order Postgres
+     * returns them. Anything displaying seats sorts them by row and number
+     * from the seat table, because seat ids are not guaranteed to follow
+     * seating order.
+     */
+    public Set<HoldSeat> getSeats() {
+        return Set.copyOf(seats);
+    }
 }
