@@ -26,10 +26,10 @@ List all showtimes.
 [
   {
     "id": 1,
-    "filmTitle": "Blade Runner 2049",
+    "filmTitle": "The Long Quiet",
     "screenName": "Screen 1",
     "startsAt": "2026-11-02T19:30:00Z",
-    "runtimeMinutes": 164,
+    "runtimeMinutes": 128,
     "priceMinor": 1250,
     "currency": "GBP",
     "seatsAvailable": 87,
@@ -231,17 +231,27 @@ when the user arrives by clicking.
 {
   "holdId": "0199c3a4-7f21-7b8e-9d44-1a2b3c4d5e6f",
   "showtimeId": 1,
-  "seatId": 1002,
-  "rowLabel": "A",
-  "seatNumber": 2,
+  "seats": [
+    { "seatId": 1002, "rowLabel": "A", "seatNumber": 2, "tier": "NORMAL", "priceMinor": 1150 },
+    { "seatId": 1061, "rowLabel": "F", "seatNumber": 1, "tier": "PREMIUM", "priceMinor": 1400 }
+  ],
+  "totalMinor": 2550,
+  "currency": "GBP",
   "expiresAt": "2026-10-31T08:12:00Z",
   "ttlSeconds": 180,
   "status": "ACTIVE"
 }
 ```
 
-`status` is one of `ACTIVE`, `EXPIRED`, `CONVERTED`. `ttlSeconds` is the
-remaining time, so it shrinks across calls.
+`status` is one of `ACTIVE`, `EXPIRED`, `CONVERTED`, and there is one of them
+for the whole hold rather than one per seat. `ttlSeconds` is the remaining time,
+so it shrinks across calls, and there is one deadline for every seat on the
+hold.
+
+The prices here are current, not the ones quoted when the hold was taken. They
+only differ if a showtime's base price changes mid-hold, and a hold lasts five
+minutes. The booking is where a price is frozen, because that is the record of
+what was charged.
 
 **404** unknown hold.
 
@@ -257,9 +267,9 @@ Convert a hold into a booking.
 { "holdId": "0199c3a4-7f21-7b8e-9d44-1a2b3c4d5e6f" }
 ```
 
-The body carries only the hold ID. The hold already knows its seat and showtime,
-so re-sending them would let a client submit a combination that disagrees with
-the server, and the server would have to decide which to trust.
+The body carries only the hold ID. The hold already knows its seats and its
+showtime, so re-sending them would let a client submit a combination that
+disagrees with the server, and the server would have to decide which to trust.
 
 **201**
 
@@ -267,15 +277,28 @@ the server, and the server would have to decide which to trust.
 {
   "bookingReference": "SB-7F3K2Q",
   "showtimeId": 1,
-  "filmTitle": "Blade Runner 2049",
+  "filmTitle": "The Long Quiet",
   "screenName": "Screen 1",
   "startsAt": "2026-11-02T19:30:00Z",
-  "seat": { "rowLabel": "A", "seatNumber": 2 },
-  "pricePaidMinor": 1250,
+  "seats": [
+    { "rowLabel": "A", "seatNumber": 2, "tier": "NORMAL", "pricePaidMinor": 1150 },
+    { "rowLabel": "F", "seatNumber": 1, "tier": "PREMIUM", "pricePaidMinor": 1400 }
+  ],
+  "totalPaidMinor": 2550,
   "currency": "GBP",
   "bookedAt": "2026-10-31T08:09:14Z"
 }
 ```
+
+One booking covers every seat on its hold. There is no converting part of a
+hold, so this either writes the whole booking or none of it.
+
+`pricePaidMinor` is per seat and records what was actually charged, so a later
+price change never rewrites a receipt. `totalPaidMinor` is their sum and is not
+stored anywhere: a stored total is a second place for the truth to live and a
+chance for it to drift from the lines it summarises.
+
+One currency for the booking, not per seat. One transaction, one currency.
 
 **409** with a distinct `type` per case:
 
