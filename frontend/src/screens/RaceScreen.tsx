@@ -53,7 +53,7 @@ export function RaceScreen() {
         if (err instanceof ApiError) {
           return {
             status: err.status,
-            outcome: err.is("seat-unavailable") ? "lost" : "other",
+            outcome: err.is("seats-unavailable") ? "lost" : "other",
             ms,
             body: `{"type":"…/${err.slug}","title":"${err.problem.title}"}`,
           };

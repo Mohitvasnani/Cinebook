@@ -26,12 +26,14 @@ const BLOCKS = [
 
 export function SeatMap({
   seats,
-  selectedId,
+  selectedIds,
   pending,
   onSelect,
 }: {
   seats: SeatType[];
-  selectedId: number | null;
+  /* A set, not an id: several seats can be selected at once, and a Set keeps
+     the per-seat lookup O(1) across 120 seats. */
+  selectedIds: ReadonlySet<number>;
   pending: boolean;
   onSelect: (seat: SeatType) => void;
 }) {
@@ -106,7 +108,7 @@ export function SeatMap({
                           <div key={seat.id} className={styles.slot}>
                             <Seat
                               seat={seat}
-                              selected={selectedId === seat.id}
+                              selected={selectedIds.has(seat.id)}
                               pending={pending}
                               onSelect={onSelect}
                             />

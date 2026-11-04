@@ -4,20 +4,20 @@
    export const PROBLEM_BASE = "https://screenbook.dev/problems";
 
    export interface ProblemDetail {
-     /* URI naming the problem kind, e.g. ".../problems/seat-unavailable" */
+     /* URI naming the problem kind, e.g. ".../problems/seats-unavailable" */
      type: string;
      title: string;
      status: number;
      detail?: string;
      instance?: string;
-     /* Problems may carry extra members, such as seatId on seat-unavailable. */
+     /* Problems may carry extra members, such as seatId on seats unavailable. */
      [key: string]: unknown;
    }
    
    /* The cases the client knows how to react to. Anything else is "unknown" and
       gets generic handling. */
    export type ProblemSlug =
-     | "seat-unavailable"
+     | "seats-unavailable"
      | "hold-expired"
      | "hold-already-converted"
      | "not-found"
@@ -40,7 +40,7 @@
      get slug(): ProblemSlug {
        const segment = this.problem.type.split("/").pop() ?? "";
        switch (segment) {
-         case "seat-unavailable":
+         case "seats-unavailable":
          case "hold-expired":
          case "hold-already-converted":
          case "not-found":
