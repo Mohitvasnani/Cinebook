@@ -1,257 +1,292 @@
-/* The mock implementation of docs/api-contract.md. These run in a service
-   worker, so the app's fetch calls are intercepted before they leave the page.
-   Status codes and error bodies match the contract exactly: when the Spring
-   service replaces this, no component changes. */
+/* The mock implementation of docs/api-contract.md, running in a service worker
+   so the app's fetch calls are intercepted before they leave the page. Status
+   codes and error bodies match the contract exactly: when the Spring service
+   replaces this, no component changes. */
 
-   import { delay, http, HttpResponse } from "msw";
+import { delay, http, HttpResponse } from "msw";
 
-   import { HOLD_TTL_SECONDS } from "@/services/apiConfig";
-   import { PROBLEM_BASE, type ProblemDetail } from "@/services/problemDetails";
-   import type { Hold, HoldDetail, HoldStatus, SeatMap, Showtime } from "@/types/api";
-   import {
-     createBooking,
-     createHold,
-     findShowtime,
-     getBooking,
-     getHoldRecord,
-     releaseHold,
-     remainingSeconds,
-     seatById,
-     seatMapFor,
-     seatsAvailableFor,
-     SHOWTIMES,
-   } from "./db";
-   
-   /* Enough latency that loading states are real rather than theoretical. */
-   const LATENCY_MS = 180;
-   
-   function problem(
-     slug: string,
-     status: number,
-     title: string,
-     detail: string,
-     instance: string,
-     extra: Record<string, unknown> = {},
-   ): ProblemDetail {
-     return { type: `${PROBLEM_BASE}/${slug}`, title, status, detail, instance, ...extra };
-   }
-   
-   const problemResponse = (body: ProblemDetail) =>
-     HttpResponse.json(body, {
-       status: body.status,
-       headers: { "Content-Type": "application/problem+json" },
-     });
-   
-   const notFound = (instance: string, detail: string) =>
-     problemResponse(problem("not-found", 404, "Not found", detail, instance));
-   
-   export const handlers = [
-     http.get("/api/showtimes", async () => {
-       await delay(LATENCY_MS);
-       const body: Showtime[] = SHOWTIMES.map((showtime) => ({
-         ...showtime,
-         seatsAvailable: seatsAvailableFor(showtime.id),
-       }));
-       return HttpResponse.json(body);
-     }),
-   
-     http.get("/api/showtimes/:showtimeId/seats", async ({ params }) => {
-       await delay(LATENCY_MS);
-       const showtimeId = Number(params.showtimeId);
-   
-       if (!Number.isInteger(showtimeId) || !findShowtime(showtimeId)) {
-         return notFound(
-           `/api/showtimes/${params.showtimeId}/seats`,
-           `No showtime with id ${params.showtimeId}.`,
-         );
-       }
-   
-       const body: SeatMap = { showtimeId, seats: seatMapFor(showtimeId) };
-       return HttpResponse.json(body);
-     }),
-   
-     http.post("/api/holds", async ({ request }) => {
-       await delay(LATENCY_MS);
-   
-       let payload: { showtimeId?: unknown; seatId?: unknown };
-       try {
-         payload = (await request.json()) as typeof payload;
-       } catch {
-         payload = {};
-       }
-   
-       const { showtimeId, seatId } = payload;
-       if (typeof showtimeId !== "number" || typeof seatId !== "number") {
-         return problemResponse(
-           problem(
-             "validation-failed",
-             422,
-             "Validation failed",
-             "showtimeId and seatId are required and must be numbers.",
-             "/api/holds",
-           ),
-         );
-       }
-   
-       const outcome = createHold(showtimeId, seatId);
-   
-       if (!outcome.ok) {
-         if (outcome.reason === "unavailable") {
-           const seat = seatById(seatId);
-           const label = seat ? `${seat.rowLabel}${seat.seatNumber}` : `#${seatId}`;
-           return problemResponse(
-             problem(
-               "seat-unavailable",
-               409,
-               "Seat unavailable",
-               `Seat ${label} is already held or booked for this showtime.`,
-               "/api/holds",
-               { seatId },
-             ),
-           );
-         }
-         return notFound(
-           "/api/holds",
-           outcome.reason === "no-such-showtime"
-             ? `No showtime with id ${showtimeId}.`
-             : `No seat with id ${seatId}.`,
-         );
-       }
-   
-       const { hold, seat } = outcome;
-       const body: Hold = {
-         holdId: hold.holdId,
-         showtimeId: hold.showtimeId,
-         seatId: hold.seatId,
-         rowLabel: seat.rowLabel,
-         seatNumber: seat.seatNumber,
-         expiresAt: new Date(hold.expiresAt).toISOString(),
-         ttlSeconds: HOLD_TTL_SECONDS,
-       };
-   
-       return HttpResponse.json(body, {
-         status: 201,
-         headers: { Location: `/api/holds/${hold.holdId}` },
-       });
-     }),
-   
-     http.get("/api/holds/:holdId", async ({ params }) => {
-       await delay(LATENCY_MS);
-       const holdId = String(params.holdId);
-       const hold = getHoldRecord(holdId);
-       const seat = hold ? seatById(hold.seatId) : undefined;
-   
-       if (!hold || !seat) {
-         return notFound(`/api/holds/${holdId}`, `No hold with id ${holdId}.`);
-       }
-   
-       const status: HoldStatus =
-         hold.convertedAt !== null
-           ? "CONVERTED"
-           : hold.expiresAt > Date.now()
-             ? "ACTIVE"
-             : "EXPIRED";
-   
-       const body: HoldDetail = {
-         holdId: hold.holdId,
-         showtimeId: hold.showtimeId,
-         seatId: hold.seatId,
-         rowLabel: seat.rowLabel,
-         seatNumber: seat.seatNumber,
-         expiresAt: new Date(hold.expiresAt).toISOString(),
-         ttlSeconds: remainingSeconds(hold.expiresAt),
-         status,
-       };
-       return HttpResponse.json(body);
-     }),
-   
-     http.delete("/api/holds/:holdId", async ({ params }) => {
-       await delay(LATENCY_MS);
-       const holdId = String(params.holdId);
-       const outcome = releaseHold(holdId);
-   
-       if (!outcome.ok) {
-         if (outcome.reason === "already-converted") {
-           return problemResponse(
-             problem(
-               "hold-already-converted",
-               409,
-               "Hold already converted",
-               "That hold is already a booking and cannot be released.",
-               `/api/holds/${holdId}`,
-             ),
-           );
-         }
-         return notFound(`/api/holds/${holdId}`, `No hold with id ${holdId}.`);
-       }
-       return new HttpResponse(null, { status: 204 });
-     }),
-   
-     http.post("/api/bookings", async ({ request }) => {
-       await delay(LATENCY_MS);
-   
-       let payload: { holdId?: unknown };
-       try {
-         payload = (await request.json()) as typeof payload;
-       } catch {
-         payload = {};
-       }
-   
-       if (typeof payload.holdId !== "string" || payload.holdId.length === 0) {
-         return problemResponse(
-           problem(
-             "validation-failed",
-             422,
-             "Validation failed",
-             "holdId is required.",
-             "/api/bookings",
-           ),
-         );
-       }
-   
-       const outcome = createBooking(payload.holdId);
-   
-       if (!outcome.ok) {
-         switch (outcome.reason) {
-           case "expired":
-             return problemResponse(
-               problem(
-                 "hold-expired",
-                 409,
-                 "Hold expired",
-                 "That hold expired before it was confirmed. The seat is available again.",
-                 "/api/bookings",
-               ),
-             );
-           case "already-converted":
-             return problemResponse(
-               problem(
-                 "hold-already-converted",
-                 409,
-                 "Hold already converted",
-                 "That hold has already been converted into a booking.",
-                 "/api/bookings",
-               ),
-             );
-           default:
-             return notFound("/api/bookings", `No hold with id ${payload.holdId}.`);
-         }
-       }
-   
-       return HttpResponse.json(outcome.booking, { status: 201 });
-     }),
-   
-     http.get("/api/bookings/:reference", async ({ params }) => {
-       await delay(LATENCY_MS);
-       const reference = String(params.reference);
-       const booking = getBooking(reference);
-   
-       if (!booking) {
-         return notFound(
-           `/api/bookings/${reference}`,
-           `No booking with reference ${reference}.`,
-         );
-       }
-       return HttpResponse.json(booking);
-     }),
-   ];
+import { HOLD_TTL_SECONDS, MAX_SEATS_PER_HOLD } from "@/services/apiConfig";
+import { PROBLEM_BASE, type ProblemDetail } from "@/services/problemDetails";
+import type {
+  HeldSeat,
+  Hold,
+  HoldDetail,
+  HoldStatus,
+  SeatMap,
+  Showtime,
+  UnavailableSeat,
+} from "@/types/api";
+import {
+  createBooking,
+  createHold,
+  findShowtime,
+  getBooking,
+  getHoldRecord,
+  releaseHold,
+  remainingSeconds,
+  seatMapFor,
+  seatPriceMinor,
+  seatsAvailableFor,
+  seatsInOrder,
+  SHOWTIMES,
+  type SeatPosition,
+} from "./db";
+
+/* Enough latency that loading states are real rather than theoretical. */
+const LATENCY_MS = 180;
+
+function problem(
+  slug: string,
+  status: number,
+  title: string,
+  detail: string,
+  instance: string,
+  extra: Record<string, unknown> = {},
+): ProblemDetail {
+  return { type: `${PROBLEM_BASE}/${slug}`, title, status, detail, instance, ...extra };
+}
+
+const problemResponse = (body: ProblemDetail) =>
+  HttpResponse.json(body, {
+    status: body.status,
+    headers: { "Content-Type": "application/problem+json" },
+  });
+
+const notFound = (instance: string, detail: string) =>
+  problemResponse(problem("not-found", 404, "Not found", detail, instance));
+
+const invalid = (instance: string, detail: string) =>
+  problemResponse(problem("validation-failed", 422, "Validation failed", detail, instance));
+
+function heldSeats(showtime: Showtime, seats: SeatPosition[]): HeldSeat[] {
+  return seats.map((seat) => ({
+    seatId: seat.id,
+    rowLabel: seat.rowLabel,
+    seatNumber: seat.seatNumber,
+    tier: seat.tier,
+    priceMinor: seatPriceMinor(showtime, seat),
+  }));
+}
+
+const totalOf = (seats: HeldSeat[]) =>
+  seats.reduce((sum, seat) => sum + seat.priceMinor, 0);
+
+/* Reads naturally for one seat and for several, matching the service. */
+function unavailableDetail(requested: number, lost: UnavailableSeat[]): string {
+  if (requested === 1) {
+    return `Seat ${lost[0].rowLabel}${lost[0].seatNumber} is already held or booked for this showtime.`;
+  }
+  return `${lost.length} of the ${requested} seats you chose have just gone.`;
+}
+
+export const handlers = [
+  http.get("/api/showtimes", async () => {
+    await delay(LATENCY_MS);
+    const body: Showtime[] = SHOWTIMES.map((showtime) => ({
+      ...showtime,
+      seatsAvailable: seatsAvailableFor(showtime.id),
+    }));
+    return HttpResponse.json(body);
+  }),
+
+  http.get("/api/showtimes/:showtimeId/seats", async ({ params }) => {
+    await delay(LATENCY_MS);
+    const showtimeId = Number(params.showtimeId);
+
+    if (!Number.isInteger(showtimeId) || !findShowtime(showtimeId)) {
+      return notFound(
+        `/api/showtimes/${params.showtimeId}/seats`,
+        `No showtime with id ${params.showtimeId}.`,
+      );
+    }
+
+    const body: SeatMap = { showtimeId, seats: seatMapFor(showtimeId) };
+    return HttpResponse.json(body);
+  }),
+
+  http.post("/api/holds", async ({ request }) => {
+    await delay(LATENCY_MS);
+
+    let payload: { showtimeId?: unknown; seatIds?: unknown };
+    try {
+      payload = (await request.json()) as typeof payload;
+    } catch {
+      payload = {};
+    }
+
+    const { showtimeId, seatIds } = payload;
+
+    if (typeof showtimeId !== "number") {
+      return invalid("/api/holds", "showtimeId is required and must be a number.");
+    }
+    if (!Array.isArray(seatIds) || seatIds.some((id) => typeof id !== "number")) {
+      return invalid("/api/holds", "seatIds is required and must be an array of numbers.");
+    }
+    if (seatIds.length < 1 || seatIds.length > MAX_SEATS_PER_HOLD) {
+      return invalid(
+        "/api/holds",
+        `seatIds must contain between 1 and ${MAX_SEATS_PER_HOLD} seats.`,
+      );
+    }
+    /* Rejected rather than deduped: a repeated seat is a client bug worth
+       reporting, and deduping makes "how many did you ask for" ambiguous. */
+    if (new Set(seatIds).size !== seatIds.length) {
+      return invalid("/api/holds", "seatIds must not repeat a seat.");
+    }
+
+    const outcome = createHold(showtimeId, seatIds as number[]);
+
+    if (!outcome.ok) {
+      if (outcome.reason === "unavailable") {
+        return problemResponse(
+          problem(
+            "seats-unavailable",
+            409,
+            "Seats unavailable",
+            unavailableDetail(seatIds.length, outcome.unavailable),
+            "/api/holds",
+            { unavailableSeats: outcome.unavailable },
+          ),
+        );
+      }
+      return notFound(
+        "/api/holds",
+        outcome.reason === "no-such-showtime"
+          ? `No showtime with id ${showtimeId}.`
+          : `No seat with id ${outcome.seatId}.`,
+      );
+    }
+
+    const showtime = findShowtime(showtimeId)!;
+    const seats = heldSeats(showtime, outcome.seats);
+
+    const body: Hold = {
+      holdId: outcome.hold.holdId,
+      showtimeId: outcome.hold.showtimeId,
+      seats,
+      totalMinor: totalOf(seats),
+      currency: showtime.currency,
+      expiresAt: new Date(outcome.hold.expiresAt).toISOString(),
+      ttlSeconds: HOLD_TTL_SECONDS,
+    };
+
+    return HttpResponse.json(body, {
+      status: 201,
+      headers: { Location: `/api/holds/${outcome.hold.holdId}` },
+    });
+  }),
+
+  http.get("/api/holds/:holdId", async ({ params }) => {
+    await delay(LATENCY_MS);
+    const holdId = String(params.holdId);
+    const hold = getHoldRecord(holdId);
+    const showtime = hold ? findShowtime(hold.showtimeId) : undefined;
+
+    if (!hold || !showtime) {
+      return notFound(`/api/holds/${holdId}`, `No hold with id ${holdId}.`);
+    }
+
+    const status: HoldStatus =
+      hold.convertedAt !== null
+        ? "CONVERTED"
+        : hold.expiresAt > Date.now()
+          ? "ACTIVE"
+          : "EXPIRED";
+
+    const seats = heldSeats(showtime, seatsInOrder(hold.seatIds));
+
+    const body: HoldDetail = {
+      holdId: hold.holdId,
+      showtimeId: hold.showtimeId,
+      seats,
+      totalMinor: totalOf(seats),
+      currency: showtime.currency,
+      expiresAt: new Date(hold.expiresAt).toISOString(),
+      ttlSeconds: remainingSeconds(hold.expiresAt),
+      status,
+    };
+    return HttpResponse.json(body);
+  }),
+
+  http.delete("/api/holds/:holdId", async ({ params }) => {
+    await delay(LATENCY_MS);
+    const holdId = String(params.holdId);
+    const outcome = releaseHold(holdId);
+
+    if (!outcome.ok) {
+      if (outcome.reason === "already-converted") {
+        return problemResponse(
+          problem(
+            "hold-already-converted",
+            409,
+            "Hold already converted",
+            "That hold is already a booking and cannot be released.",
+            `/api/holds/${holdId}`,
+          ),
+        );
+      }
+      return notFound(`/api/holds/${holdId}`, `No hold with id ${holdId}.`);
+    }
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.post("/api/bookings", async ({ request }) => {
+    await delay(LATENCY_MS);
+
+    let payload: { holdId?: unknown };
+    try {
+      payload = (await request.json()) as typeof payload;
+    } catch {
+      payload = {};
+    }
+
+    if (typeof payload.holdId !== "string" || payload.holdId.length === 0) {
+      return invalid("/api/bookings", "holdId is required.");
+    }
+
+    const outcome = createBooking(payload.holdId);
+
+    if (!outcome.ok) {
+      switch (outcome.reason) {
+        case "expired":
+          return problemResponse(
+            problem(
+              "hold-expired",
+              409,
+              "Hold expired",
+              "That hold expired before it was confirmed. The seats are available again.",
+              "/api/bookings",
+            ),
+          );
+        case "already-converted":
+          return problemResponse(
+            problem(
+              "hold-already-converted",
+              409,
+              "Hold already converted",
+              "That hold has already been converted into a booking.",
+              "/api/bookings",
+            ),
+          );
+        default:
+          return notFound("/api/bookings", `No hold with id ${payload.holdId}.`);
+      }
+    }
+
+    return HttpResponse.json(outcome.booking, { status: 201 });
+  }),
+
+  http.get("/api/bookings/:reference", async ({ params }) => {
+    await delay(LATENCY_MS);
+    const reference = String(params.reference);
+    const booking = getBooking(reference);
+
+    if (!booking) {
+      return notFound(
+        `/api/bookings/${reference}`,
+        `No booking with reference ${reference}.`,
+      );
+    }
+    return HttpResponse.json(booking);
+  }),
+];

@@ -32,7 +32,7 @@ export function SeatSelectionScreen() {
     setConflict(null);
 
     try {
-      const created = await api.createHold(showtimeId, selected.id);
+            const created = await api.createHold(showtimeId, [selected.id]);
       router.push(`/hold/${created.holdId}`);
     } catch (err) {
       /* Losing a seat between rendering the map and tapping it is ordinary,
@@ -41,6 +41,7 @@ export function SeatSelectionScreen() {
         setConflict(
           `${seatLabel(selected.rowLabel, selected.seatNumber)} just went. Someone held it a moment before you.`,
         );
+
         setSelected(null);
         seats.reload();
       } else {

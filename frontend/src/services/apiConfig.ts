@@ -15,3 +15,4 @@
    
    /* Mirrors the server value in docs/api-contract.md. */
    export const HOLD_TTL_SECONDS = 300;
+   export const MAX_SEATS_PER_HOLD = 6;

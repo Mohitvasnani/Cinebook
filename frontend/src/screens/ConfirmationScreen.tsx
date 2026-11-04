@@ -7,7 +7,7 @@ import { useState } from "react";
 import styles from "@/css/ConfirmationScreen.module.css";
 import { useApi } from "@/hooks/useApi";
 import { api } from "@/services/apiClient";
-import { dayAndTime, money, seatLabel } from "@/utils/format";
+import { dayAndTime, money } from "@/utils/format";
 
 export function ConfirmationScreen() {
   const reference = String(useParams().reference);
@@ -70,16 +70,25 @@ export function ConfirmationScreen() {
         {/* The perforation. It's a ticket, so it should look like it tears. */}
         <div aria-hidden className={styles.perforation} />
 
-        <dl className={styles.details}>
+                <dl className={styles.details}>
           <Row label="Film" value={data.filmTitle} />
           <Row label="When" value={dayAndTime(data.startsAt)} />
           <Row label="Screen" value={data.screenName} />
-          <Row label="Seat" value={seatLabel(data.seat.rowLabel, data.seat.seatNumber)} />
+
+          {/* One line per seat, each showing what it cost. A ticket for three
+              seats at three different tiers has to answer "why this total". */}
+          {data.seats.map((seat) => (
+            <Row
+              key={`${seat.rowLabel}${seat.seatNumber}`}
+              label={data.seats.length === 1 ? "Seat" : ""}
+              value={`${seat.rowLabel}${seat.seatNumber} · ${seat.tier.toLowerCase()} · ${money(seat.pricePaidMinor, data.currency)}`}
+            />
+          ))}
 
           <div className={styles.paid}>
             <dt className={styles.rowLabel}>Paid</dt>
             <dd className={`${styles.paidValue} tnum`}>
-              {money(data.pricePaidMinor, data.currency)}
+              {money(data.totalPaidMinor, data.currency)}
             </dd>
           </div>
         </dl>

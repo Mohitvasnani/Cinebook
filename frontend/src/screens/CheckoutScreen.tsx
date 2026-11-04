@@ -9,7 +9,7 @@ import styles from "@/css/CheckoutScreen.module.css";
 import { useApi } from "@/hooks/useApi";
 import { api } from "@/services/apiClient";
 import { ApiError } from "@/services/problemDetails";
-import { dayAndTime, money, seatLabel } from "@/utils/format";
+import { dayAndTime, money, seatNames } from "@/utils/format";
 
 export function CheckoutScreen() {
   const router = useRouter();
@@ -24,7 +24,13 @@ export function CheckoutScreen() {
 
   const hold = holdQuery.data;
   const showtime = showtimes.data?.find((s) => s.id === hold?.showtimeId);
-  const seatName = hold ? seatLabel(hold.rowLabel, hold.seatNumber) : "";
+
+  /* Names and plurals come from the hold, not the showtime, because a hold can
+     cover one seat or six and the copy has to read correctly either way. */
+  const seatList = hold ? seatNames(hold.seats) : "";
+  const count = hold?.seats.length ?? 0;
+  const noun = count === 1 ? "seat" : "seats";
+  const verb = count === 1 ? "is" : "are";
 
   /* Expired either because the timer ran out in front of us, or because the
      hold was already past it when the page loaded. */
@@ -81,20 +87,20 @@ export function CheckoutScreen() {
         key={hold.holdId}
         ttlSeconds={hold.ttlSeconds}
         expiresAt={hold.expiresAt}
-        seatName={seatName}
+        seatName={seatList}
         onExpire={() => setExpired(true)}
       />
 
       <h1 className={styles.title}>
-        {isOver ? `Your hold on ${seatName} ran out` : "Confirm your seat"}
+        {isOver ? `Your hold on ${seatList} ran out` : `Confirm your ${noun}`}
       </h1>
 
       {isOver ? (
         <div className={styles.panel}>
           <p className={styles.explain}>
             Holds last five minutes so nobody is kept waiting on a seat that never
-            gets booked. {seatName} is back on sale and was still free a moment ago,
-            so it is worth another try.
+            gets booked. {seatList} {verb} back on sale and {verb} still free a
+            moment ago, so it is worth another try.
           </p>
           <Link href={`/showtimes/${hold.showtimeId}`} className={styles.primary}>
             Back to seats
@@ -113,16 +119,27 @@ export function CheckoutScreen() {
                 <Row label="Screen" value={showtime.screenName} />
               </>
             )}
-            <Row label="Seat" value={`${seatName} · row ${hold.rowLabel}`} />
 
-            {showtime && (
-              <div className={styles.total}>
-                <dt>Total</dt>
-                <dd className={`${styles.totalValue} tnum`}>
-                  {money(showtime.priceMinor, showtime.currency)}
-                </dd>
-              </div>
-            )}
+            {/* A line per seat with its own price. Three seats across three
+                tiers have three different prices, so one combined line would
+                leave the total unexplained. */}
+            {hold.seats.map((seat) => (
+              <Row
+                key={seat.seatId}
+                label={count === 1 ? "Seat" : ""}
+                value={`${seat.rowLabel}${seat.seatNumber} · ${seat.tier.toLowerCase()} · ${money(seat.priceMinor, hold.currency)}`}
+              />
+            ))}
+
+            {/* The hold's own total, not the showtime's price. The showtime
+                carries the cheapest tier's price, so using it here undercharged
+                every Premium and Executive seat. */}
+            <div className={styles.total}>
+              <dt>Total</dt>
+              <dd className={`${styles.totalValue} tnum`}>
+                {money(hold.totalMinor, hold.currency)}
+              </dd>
+            </div>
           </dl>
 
           {problem && <p className={styles.problem}>{problem}</p>}
@@ -135,7 +152,7 @@ export function CheckoutScreen() {
           >
             {busy
               ? "Confirming..."
-              : `Confirm booking${showtime ? ` · ${money(showtime.priceMinor, showtime.currency)}` : ""}`}
+              : `Confirm booking · ${money(hold.totalMinor, hold.currency)}`}
           </button>
 
           <button
@@ -144,7 +161,7 @@ export function CheckoutScreen() {
             onClick={release}
             disabled={busy}
           >
-            Release {seatName} and go back
+            Release {seatList} and go back
           </button>
         </>
       )}

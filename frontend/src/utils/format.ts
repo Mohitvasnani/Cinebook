@@ -36,3 +36,7 @@
   
   export const seatLabel = (rowLabel: string, seatNumber: number): string =>
     `${rowLabel}${seatNumber}`;
+  /* "A2" or "A2, A3, F1". Used wherever a hold or booking names its seats. */
+export const seatNames = (
+  seats: { rowLabel: string; seatNumber: number }[],
+): string => seats.map((s) => seatLabel(s.rowLabel, s.seatNumber)).join(", ");

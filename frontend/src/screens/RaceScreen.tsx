@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
+import { seatNames } from "@/utils/format";
 import { RequestLane, type LaneResult } from "@/components/RequestLane";
 import styles from "@/css/RaceScreen.module.css";
 import { useApi } from "@/hooks/useApi";
@@ -40,13 +40,13 @@ export function RaceScreen() {
     const attempt = async (): Promise<Attempt> => {
       const started = performance.now();
       try {
-        const hold = await api.createHold(showtime.id, chosen.id);
+               const hold = await api.createHold(showtime.id, [chosen.id]);
         return {
           status: 201,
           outcome: "won",
           ms: performance.now() - started,
           holdId: hold.holdId,
-          body: `{"holdId":"${hold.holdId.slice(0, 8)}…","seat":"${seatLabel(hold.rowLabel, hold.seatNumber)}","ttlSeconds":${hold.ttlSeconds}}`,
+                   body: `{"holdId":"${hold.holdId.slice(0, 8)}…","seat":"${seatNames(hold.seats)}","ttlSeconds":${hold.ttlSeconds}}`,
         };
       } catch (err) {
         const ms = performance.now() - started;

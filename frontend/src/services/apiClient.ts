@@ -44,10 +44,10 @@
      getSeatMap: (showtimeId: number) =>
        request<SeatMap>(`/showtimes/${showtimeId}/seats`),
    
-     createHold: (showtimeId: number, seatId: number) =>
+          createHold: (showtimeId: number, seatIds: number[]) =>
        request<Hold>("/holds", {
          method: "POST",
-         body: JSON.stringify({ showtimeId, seatId }),
+         body: JSON.stringify({ showtimeId, seatIds }),
        }),
    
      getHold: (holdId: string) => request<HoldDetail>(`/holds/${holdId}`),
