@@ -37,5 +37,5 @@ CREATE TABLE booking (
     -- The invariant. Everything else is an optimisation on top of this line.
     CONSTRAINT booking_one_per_seat_per_showtime UNIQUE (showtime_id, seat_id),
     CONSTRAINT booking_reference_shape
-        CHECK (reference ~ '^CB-[2-9A-HJKMNP-TV-Z]{6}$')
+                CHECK (reference ~ '^SB-[2-9A-HJKMNP-TV-Z]{6}$')
 );

@@ -18,7 +18,7 @@ final class BookingReference {
     private static final SecureRandom RANDOM = new SecureRandom();
 
     static String generate() {
-        StringBuilder code = new StringBuilder("CB-");
+        StringBuilder code = new StringBuilder("SB-");
         for (int i = 0; i < LENGTH; i++) {
             code.append(ALPHABET.charAt(RANDOM.nextInt(ALPHABET.length())));
         }
