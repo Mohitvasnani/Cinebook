@@ -2,8 +2,8 @@
 
 import styles from "@/css/Seat.module.css";
 import type { Seat as SeatType } from "@/types/api";
-import { seatLabel } from "@/utils/format";
-import { TIERS, tierOf } from "@/utils/seatTiers";
+import { money, seatLabel } from "@/utils/format";
+import { tierClass } from "@/utils/seatTiers";
 
 /* One seat.
 
@@ -26,7 +26,7 @@ export function Seat({
   onSelect: (seat: SeatType) => void;
 }) {
   const taken = seat.status === "BOOKED" || seat.status === "HELD";
-  const tier = tierOf(seat.rowLabel);
+  const tier = seat.tier;
 
   /* pending is the in-flight hold. It only means anything on the seat the
      request is for, which is why it is read together with selected. */
@@ -62,17 +62,17 @@ export function Seat({
       disabled={taken || pending}
       /* Pointer-only affordance. Touch users get the same facts in the
          summary panel once they tap. */
-      title={`${label} · ${TIERS[tier].label}`}
-      aria-label={`Seat ${label}, ${TIERS[tier].label}, ${spoken}`}
+            title={`${label} · ${seat.tierName} · ${money(seat.priceMinor, seat.currency)}`}
+            aria-label={`Seat ${label}, ${seat.tierName}, ${money(seat.priceMinor, seat.currency)}, ${spoken}`}
       aria-pressed={selected}
       onClick={() => onSelect(seat)}
-      className={`${styles.seat} ${styles[tier]} ${state}`}
+           className={`${styles.seat} ${styles[tier]} ${state}`}
     >
       {claiming && <span aria-hidden className={styles.ring} />}
 
-      {tier === "premium" && <span aria-hidden className={styles.headrest} />}
+           {tier === "PREMIUM" && <span aria-hidden className={styles.headrest} />}
 
-      {tier === "executive" && (
+      {tier === "EXECUTIVE" && (
         <>
           <span aria-hidden className={`${styles.arm} ${styles.armLeft}`} />
           <span aria-hidden className={`${styles.arm} ${styles.armRight}`} />

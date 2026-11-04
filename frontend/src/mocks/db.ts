@@ -6,19 +6,37 @@
    on a full page reload. */
 
    import { HOLD_TTL_SECONDS } from "@/services/apiConfig";
-   import type { Booking, Seat, SeatStatus, Showtime } from "@/types/api";
+      import type { Booking, Seat, SeatStatus, Showtime, Tier } from "@/types/api";
    
    const ROWS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"] as const;
    const SEATS_PER_ROW = 12;
    const SEAT_ID_BASE = 1000;
-   const CURRENCY = "GBP";
+      const CURRENCY = "GBP";
+   
+   /* Stands in for the seat_tier table from migration V6. Same three codes, same
+      uplifts, so a seat costs the same here as it does against Postgres. */
+   const SEAT_TIERS: Record<Tier, { displayName: string; priceDeltaMinor: number }> = {
+     NORMAL: { displayName: "Normal", priceDeltaMinor: 0 },
+     PREMIUM: { displayName: "Premium", priceDeltaMinor: 250 },
+     EXECUTIVE: { displayName: "Executive", priceDeltaMinor: 500 },
+   };
+   
+   /* The CASE from V6's backfill. This is the one place the mock is allowed to
+      derive a tier from a row letter, because here it is standing in for the
+      seed data rather than guessing at it. */
+   function tierForRow(rowLabel: string): Tier {
+     if (rowLabel <= "E") return "NORMAL";
+     if (rowLabel <= "H") return "PREMIUM";
+     return "EXECUTIVE";
+   }
    
    /* ------------------------------------------------------------------ seats */
    
-   export interface SeatPosition {
+      export interface SeatPosition {
      id: number;
      rowLabel: string;
      seatNumber: number;
+     tier: Tier;
    }
    
    export const SEATS: SeatPosition[] = ROWS.flatMap((rowLabel, rowIndex) =>
@@ -26,8 +44,16 @@
        id: SEAT_ID_BASE + rowIndex * SEATS_PER_ROW + (i + 1),
        rowLabel,
        seatNumber: i + 1,
+       tier: tierForRow(rowLabel),
      })),
    );
+   
+   /* The pricing rule from the seat_availability view: the showtime's base plus
+      the tier's uplift. One function, used by both the seat map and the booking,
+      so the displayed price and the charged price cannot drift. */
+   export function seatPriceMinor(showtime: Showtime, seat: SeatPosition): number {
+     return showtime.priceMinor + SEAT_TIERS[seat.tier].priceDeltaMinor;
+   }
    
    export const SEATS_TOTAL = SEATS.length;
    
@@ -159,12 +185,19 @@
      return "AVAILABLE";
    }
    
+      /* The handler validates the showtime before calling this, so findShowtime
+      cannot miss here. The fallback exists to satisfy the type, not a real case. */
    export function seatMapFor(showtimeId: number): Seat[] {
+     const showtime = findShowtime(showtimeId);
      return SEATS.map((seat) => ({
        id: seat.id,
        rowLabel: seat.rowLabel,
        seatNumber: seat.seatNumber,
        status: seatStatus(showtimeId, seat.id),
+       tier: seat.tier,
+       tierName: SEAT_TIERS[seat.tier].displayName,
+       priceMinor: showtime ? seatPriceMinor(showtime, seat) : 0,
+       currency: showtime?.currency ?? CURRENCY,
      }));
    }
    
@@ -241,7 +274,10 @@
        screenName: showtime.screenName,
        startsAt: showtime.startsAt,
        seat: { rowLabel: seat.rowLabel, seatNumber: seat.seatNumber },
-       pricePaidMinor: showtime.priceMinor,
+        /* Same fix as BookingService: the seat's price, not the showtime's base.
+          Charging the base here would undercharge every Premium and Executive
+          seat, and the demo deploy runs on this code. */
+       pricePaidMinor: seatPriceMinor(showtime, seat),
        currency: showtime.currency,
        bookedAt: new Date().toISOString(),
      };
@@ -255,7 +291,7 @@
    function newBookingReference(): string {
      const bytes = crypto.getRandomValues(new Uint8Array(6));
      const code = Array.from(bytes, (b) => REFERENCE_ALPHABET[b % REFERENCE_ALPHABET.length]).join("");
-     return `CB-${code}`;
+     return `SB-${code}`;
    }
    
    export function remainingSeconds(expiresAt: number): number {

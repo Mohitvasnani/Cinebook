@@ -18,11 +18,21 @@
      seatsTotal: number;
    }
    
+     export type Tier = "NORMAL" | "PREMIUM" | "EXECUTIVE";
+
    export interface Seat {
      id: number;
      rowLabel: string;
      seatNumber: number;
      status: SeatStatus;
+     tier: Tier;
+     /* Display label for the tier, sent by the server so the code-to-text
+        mapping lives in one place. */
+     tierName: string;
+     /* This seat's price for this showtime: the showtime's base plus the tier's
+        uplift, resolved server-side. Integer minor units (pence). */
+     priceMinor: number;
+     currency: string;
    }
    
    export interface SeatMap {
