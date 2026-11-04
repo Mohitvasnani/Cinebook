@@ -1,8 +1,8 @@
 # ScreenBook Design Brief
 
-Handoff spec for designing the screens. Describes what each screen is for, what
-data it shows, and every state it has to handle. Visual direction is open; the
-constraints at the bottom are not.
+Handoff spec for the screens. Describes what each screen is for, what data it
+shows, and every state it has to handle. The visual direction is now settled and
+recorded below. The constraints at the bottom are not open.
 
 ## What this is
 
@@ -14,6 +14,35 @@ seat. One screen exists purely to show that happening. Everything else is an
 ordinary booking flow.
 
 Mobile-first. Must work at 375px wide.
+
+---
+
+## Visual direction
+
+Settled, and recorded here so the screens and this document cannot disagree. All
+of it lives in `frontend/src/css/tokens.css`, so a palette or type change is a
+one-file change.
+
+**Dark, single theme.** `color-scheme: dark`, background `#0d0e12`, surface
+`#16181e`, ink `#f2eee6`. No light mode: a booking screen is read in a dark
+room, and a second theme doubles every state there is to check.
+
+**Accent** `#ff7a59`, for identity and focus rings. Deliberately separate from
+the semantic state colours, so "the brand colour" and "this went wrong" can
+never be the same decision.
+
+**Semantic state.** `--color-positive`, `--color-warning`, `--color-critical`,
+each with a tint for fills. Never used alone: every component that uses them
+pairs the colour with a glyph or a word.
+
+**Seat tiers** have three tints of their own, stepping up in lightness so they
+survive greyscale. A tier tints a seat's outline and names itself in the
+cross-aisle. It never carries state.
+
+**Type.** Archivo for headings and the wordmark, loaded as a variable font so
+its width axis is available. Inter for body. JetBrains Mono for anything read
+character by character: booking references, HTTP codes, the countdown. Tabular
+figures through a `.tnum` utility wherever numbers sit in a column.
 
 ---
 
@@ -35,7 +64,7 @@ runtime, ticket price, and how many of 120 seats are free.
 **Role:** the core screen. Choose a seat and claim it.
 
 **Shows:** a header with the film, screen and time, then a seat map of 120 seats
-in 10 rows (A to J) of 12.
+in 10 rows (A to J) of 12. Every seat carries its tier and its own price.
 
 **Action:** tap an available seat to select it, then press Hold. That claims the
 seat for 300 seconds and moves to checkout.
@@ -66,7 +95,7 @@ without feeling like a scam countdown.
 
 **Role:** proof of booking. Reloadable and shareable by URL.
 
-**Shows:** booking reference (`CB-7F3K2Q`), film, screen, start time, seat, price
+**Shows:** booking reference (`SB-7F3K2Q`), film, screen, start time, seat, price
 paid, time booked.
 
 **Action:** none, terminal screen. Copying the reference is useful.
@@ -96,11 +125,11 @@ viewer will remember.
 ## Components
 
 ### Shell
-| Component | Role | States |
-|---|---|---|
-| `SiteHeader` | wordmark, mode badge, link to the race demo | default, scrolled |
-| `ModeBanner` | one line: mock data or live API | demo, live |
-| `SiteFooter` | links to the repo and the API docs | one |
+| Component | Role | States | Status |
+|---|---|---|---|
+| `SiteHeader` | wordmark, mode badge, link to the race demo | default, scrolled | built: sticky, shrinks and earns a shadow once scrolled |
+| `ModeBanner` | one line: mock data or live API | demo, live | built: sits above the sticky header, so it scrolls away |
+| `SiteFooter` | links to the repo and the API docs | one | built |
 
 ### Showtimes
 | Component | Role | States |
@@ -142,8 +171,23 @@ viewer will remember.
 | `ModeCaveat` | what this proves in each mode | demo, live |
 
 ### Shared
-`Button` (idle, hover, focus, loading, disabled), `StatusPill`, `Skeleton`,
-`ErrorState` with retry, `EmptyState`.
+| Component | Role | States | Status |
+|---|---|---|---|
+| `Button` | one button style for the whole site | idle, hover, focus, loading, disabled | not built: each screen still styles its own |
+| `StatusPill` | short label for a state or an HTTP code | neutral, positive, warning, critical | built |
+| `Skeleton` | loading placeholder shaped like the content it replaces | block, text | built |
+| `ErrorState` | load failed, shows the problem detail | with retry, without | built |
+| `EmptyState` | nothing to show, and that is the right answer | with action, without | built |
+
+Two rules these encode. Every `StatusPill` tone carries a glyph as well as a
+colour, so won and lost stay distinguishable in greyscale, to a colour-blind
+reader, and in a screenshot. And `Skeleton` is `aria-hidden`: the container
+announces the load once, rather than a dozen grey rectangles announcing
+themselves.
+
+`ErrorState` prefers the API's own `detail` over a generic line, because every
+failure arrives as RFC 9457 problem details and the server usually has a better
+sentence than "something went wrong".
 
 ---
 
@@ -153,11 +197,23 @@ Worth spending the effort here. Everything else is straightforward.
 
 1. **120 seats at 375px wide.** Twelve seats across leaves roughly 26px each
    including gutters. Decide: scale down, scroll horizontally, or zoom.
+   **Settled:** one scaled view at every width. A zoom step would give bigger
+   touch targets but adds a navigation mode to the one screen that matters.
 2. **Four seat states without relying on colour.** Red and green is the obvious
    choice and the worst one. Shape, fill pattern, border weight, opacity or a
    glyph has to carry the meaning too.
+   **Settled:** two independent axes. State sets fill, border style and glyph;
+   tier sets outline tint and silhouette, a headrest bar for Premium and
+   armrests for Executive. Colour is never the only signal on either axis, and
+   keeping them separate means a tier can be added without touching a state
+   rule.
 3. **Aisles.** What separates a cinema from a grid of squares is the gaps. Decide
    where they fall and how rows are labelled.
+   **Settled:** 3 | 6 | 3 with two walking aisles, so the best seats sit in a
+   six-wide centre block. Cross-aisles fall wherever the tier changes rather
+   than at hardcoded rows, and each carries the tier name, so the gap doubles as
+   the section label and there is no legend row to keep in sync. Row letters at
+   both ends.
 4. **The countdown.** Urgency without anxiety, and not through colour alone.
 5. **The race page.** A developer-facing screen inside a consumer-facing app.
    Decide whether it matches the rest of the site or deliberately looks like a
@@ -174,8 +230,15 @@ These come from the API and changing them means changing the backend.
 - **One seat per hold.** There is no basket and no multi-seat selection. The
   summary shows exactly one seat
 - Prices in GBP
+- Three seat tiers: rows A to E Normal, F to H Premium, I to J Executive. The
+  tier arrives on every seat from the API, so the client never derives it from
+  the row letter
+- Per-seat pricing. The showtime carries a base price and the tier an uplift, in
+  pence: Normal 0, Premium +250, Executive +500. The API resolves the sum and
+  sends `priceMinor` on each seat; the client never does that arithmetic. The
+  price on the showtimes list is the lowest tier, so it reads as "from"
 - No login, no account, no payment step. Nobody signs in
-- Booking references are `CB-` followed by 6 characters
+- Booking references are `SB-` followed by 6 characters
 - Seat states are exactly four: AVAILABLE, HELD, BOOKED, and the user's own
   SELECTED before they press Hold
 - Must work at 375px
