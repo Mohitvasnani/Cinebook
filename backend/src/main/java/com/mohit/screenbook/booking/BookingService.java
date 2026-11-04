@@ -1,7 +1,7 @@
 package com.mohit.screenbook.booking;
 
-import com.mohit.screenbook.catalogue.Showtime;
-import com.mohit.screenbook.catalogue.ShowtimeRepository;
+import com.mohit.screenbook.catalogue.SeatMapQuery;
+import com.mohit.screenbook.catalogue.SeatPrice;
 import com.mohit.screenbook.common.HoldAlreadyConvertedException;
 import com.mohit.screenbook.common.HoldExpiredException;
 import com.mohit.screenbook.common.NotFoundException;
@@ -20,15 +20,15 @@ import java.util.UUID;
 public class BookingService {
 
     private final SeatHoldRepository holds;
-    private final ShowtimeRepository showtimes;
+    private final SeatMapQuery seatMap;
     private final BookingRepository bookings;
     private final BookingQuery bookingQuery;
     private final Clock clock;
 
-    BookingService(SeatHoldRepository holds, ShowtimeRepository showtimes,
+    BookingService(SeatHoldRepository holds, SeatMapQuery seatMap,
                    BookingRepository bookings, BookingQuery bookingQuery, Clock clock) {
         this.holds = holds;
-        this.showtimes = showtimes;
+        this.seatMap = seatMap;
         this.bookings = bookings;
         this.bookingQuery = bookingQuery;
         this.clock = clock;
@@ -58,18 +58,19 @@ public class BookingService {
             throw new HoldExpiredException();
         }
 
-        Showtime showtime = showtimes.findById(hold.getShowtimeId())
-                .orElseThrow(() -> new IllegalStateException(
-                        "Hold %s references a showtime that does not exist".formatted(holdId)));
+        /* The seat's own price, not the showtime's base. After V6 an Executive
+           seat costs base + 500, so reading the showtime here would charge the
+           Normal price for every seat in the house. This is also the lookup
+           that proves the hold's showtime and seat still exist. */
+        SeatPrice price = seatMap.priceOf(hold.getShowtimeId(), hold.getSeatId());
 
         hold.markBooked(now);
 
         /* Price and currency are copied, not referenced. They record what was
-           charged, so a later price change on the showtime does not rewrite
-           history. */
+           charged, so a later price change does not rewrite history. */
         Booking booking = Booking.of(
                 hold.getId(), hold.getShowtimeId(), hold.getSeatId(),
-                showtime.getPriceMinor(), showtime.getCurrency(),
+                price.priceMinor(), price.currency(),
                 BookingReference.generate(), now);
 
         try {

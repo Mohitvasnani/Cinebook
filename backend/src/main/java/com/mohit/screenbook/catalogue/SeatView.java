@@ -1,4 +1,21 @@
 package com.mohit.screenbook.catalogue;
 
-public record SeatView(long id, String rowLabel, int seatNumber, SeatStatus status) {
+/**
+ * One seat in GET /api/showtimes/{id}/seats. Field names are the JSON keys, so
+ * this file and docs/api-contract.md have to agree.
+ *
+ * tier is a String, not an enum, on purpose. The tiers live in the seat_tier
+ * table so that adding one is a single row; a Java enum would make it a row
+ * plus a code change and give the lookup table nothing to do.
+ */
+public record SeatView(
+        long id,
+        String rowLabel,
+        int seatNumber,
+        SeatStatus status,
+        String tier,
+        String tierName,
+        int priceMinor,
+        String currency
+) {
 }

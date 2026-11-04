@@ -11,12 +11,19 @@ import java.util.List;
 public class SeatMapQuery {
 
     private static final String SEAT_MAP = """
-            SELECT seat_id, row_label, seat_number, status
+            SELECT seat_id, row_label, seat_number, status,
+                   tier, tier_name, price_minor, currency
             FROM seat_availability
             WHERE showtime_id = :showtimeId
             ORDER BY row_label, seat_number
             """;
 
+    private static final String SEAT_PRICE = """
+            SELECT price_minor, currency
+            FROM seat_availability
+            WHERE showtime_id = :showtimeId
+              AND seat_id     = :seatId
+            """;
     private static final String SEAT_STATUS = """
             SELECT status
             FROM seat_availability
@@ -41,7 +48,11 @@ public class SeatMapQuery {
                         rs.getLong("seat_id"),
                         rs.getString("row_label"),
                         rs.getInt("seat_number"),
-                        SeatStatus.valueOf(rs.getString("status"))))
+                        SeatStatus.valueOf(rs.getString("status")),
+                        rs.getString("tier"),
+                        rs.getString("tier_name"),
+                        rs.getInt("price_minor"),
+                        rs.getString("currency")))
                 .list();
 
         /* An empty list is ambiguous: either no such showtime, or a real
@@ -68,6 +79,24 @@ public class SeatMapQuery {
                 .map(SeatStatus::valueOf)
                 .orElseThrow(() -> new NotFoundException(
                         "No seat with id %d for showtime %d.".formatted(seatId, showtimeId)));
+    }
+
+    /**
+     * What this seat costs for this showtime. Like statusOf, deliberately has
+     * no @Transactional: it is called from inside the booking transaction and
+     * must read what that transaction can see.
+     */
+    public SeatPrice priceOf(long showtimeId, long seatId) {
+        return jdbc.sql(SEAT_PRICE)
+                .param("showtimeId", showtimeId)
+                .param("seatId", seatId)
+                .query((rs, rowNum) -> new SeatPrice(
+                        rs.getInt("price_minor"),
+                        rs.getString("currency")))
+                .optional()
+                .orElseThrow(() -> new IllegalStateException(
+                        "Hold references seat %d / showtime %d, which the seat map does not have"
+                                .formatted(seatId, showtimeId)));
     }
 
     private boolean showtimeExists(long showtimeId) {
