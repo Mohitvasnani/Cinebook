@@ -24,7 +24,19 @@
   /* Lighter than n400, for borders that must be visible against surface. */
   --color-line-strong: #3a3e4b;
 
-  --color-divider: color-mix(in srgb, #f2eee6 14%, transparent);
+    --color-divider: color-mix(in srgb, #f2eee6 14%, transparent);
+
+  /* Semantic state, kept apart from --color-accent so that "the brand colour"
+     and "this went wrong" can never be the same decision. Each has a tint for
+     fills, because the solid colour is only ever used for text and borders at
+     these sizes. Colour never carries meaning alone: every component using
+     these pairs them with a glyph or a word. */
+  --color-positive: #58c08a;
+  --color-positive-tint: rgba(88, 192, 138, 0.14);
+  --color-warning: #e3b341;
+  --color-warning-tint: rgba(227, 179, 65, 0.14);
+  --color-critical: #f2695c;
+  --color-critical-tint: rgba(242, 105, 92, 0.14);
 
   /* Seat tiers. These tint a seat's outline and label it in the cross-aisle;
      they never carry state on their own, because colour alone cannot.
@@ -44,8 +56,9 @@
 
   --radius: 10px;
   --radius-lg: 14px;
-  /* A seat, not a square: rounded shoulders, squarer base. */
-  --radius-seat: 32% 32% 14% 14%;
+   /* A seat seen from behind: squarer front edge toward the screen, rounded
+     seat back nearest the viewer. */
+  --radius-seat: 14% 14% 32% 32%;
 
   --shadow-lifted: 0 10px 30px rgba(0, 0, 0, 0.5);
 }

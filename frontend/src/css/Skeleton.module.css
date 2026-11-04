@@ -1,0 +1,46 @@
+/* A loading placeholder is a shape, not a spinner. A spinner says "something is
+   happening"; a block the size of the thing being fetched says "this is what is
+   coming", and the layout does not jump when it arrives. */
+
+.skeleton {
+  display: block;
+  background: var(--color-n200);
+  border-radius: var(--radius);
+  position: relative;
+  overflow: hidden;
+}
+
+/* The sweep is the only thing that marks this as loading rather than an empty
+   box. It travels, rather than pulsing, so a column of them reads as one
+   surface filling in. */
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--color-n400) 70%, transparent),
+    transparent
+  );
+  transform: translateX(-100%);
+  animation: sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes sweep {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* Motion is decoration here: the shape already communicates loading. */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    animation: none;
+  }
+}
+
+.text {
+  height: 1em;
+  border-radius: calc(var(--radius) / 2);
+}

@@ -1,0 +1,51 @@
+/* A short, bordered label for a state: a seat status, an HTTP code, a race
+   outcome. Tinted fill plus a solid border in the same hue, so it holds up
+   against both --color-bg and --color-surface. */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.15em 0.6em;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* The glyph is the accessibility backstop. In greyscale, or for anyone who
+   cannot separate the hues, the mark still distinguishes won from lost. */
+.glyph {
+  font-size: 0.9em;
+  line-height: 1;
+}
+
+/* Codes and references are read character by character, so they get the mono
+   face and tabular figures. */
+.mono {
+  font-family: var(--font-mono);
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.neutral {
+  color: var(--color-n700);
+  background: var(--color-n200);
+}
+
+.positive {
+  color: var(--color-positive);
+  background: var(--color-positive-tint);
+}
+
+.warning {
+  color: var(--color-warning);
+  background: var(--color-warning-tint);
+}
+
+.critical {
+  color: var(--color-critical);
+  background: var(--color-critical-tint);
+}

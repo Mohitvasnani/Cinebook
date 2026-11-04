@@ -1,5 +1,7 @@
 "use client";
-
+import { EmptyState } from "@/components/EmptyState";
+import { ErrorState } from "@/components/ErrorState";
+import { Skeleton } from "@/components/Skeleton";
 import Link from "next/link";
 
 import styles from "@/css/ShowtimesScreen.module.css";
@@ -28,26 +30,26 @@ export function ShowtimesScreen() {
       <h1 className={styles.title}>What&apos;s on</h1>
       <p className={styles.subtitle}>Riverside · {today}</p>
 
-      {loading && (
-        <div className={styles.skeletons}>
-          <div className={styles.skeleton} />
-          <div className={styles.skeleton} />
+            {loading && (
+        <div className={styles.skeletons} aria-busy aria-label="Loading showtimes">
+          <Skeleton height="112px" />
+          <Skeleton height="112px" />
         </div>
       )}
 
       {error && (
-        <div className={styles.panel}>
-          <p>Could not load showtimes.</p>
-          <button type="button" onClick={reload} className={styles.retry}>
-            Try again
-          </button>
-        </div>
+        <ErrorState
+          error={error}
+          title="Could not load showtimes."
+          onRetry={reload}
+        />
       )}
 
       {data?.length === 0 && (
-        <div className={styles.panel}>
-          <p>Nothing on today.</p>
-        </div>
+        <EmptyState
+          title="Nothing on today."
+          detail="Check back tomorrow, or try another day."
+        />
       )}
 
       {[...byFilm.entries()].map(([film, showtimes]) => (
