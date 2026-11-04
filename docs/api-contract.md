@@ -10,6 +10,8 @@ construction rather than by discovery.
 - Errors use RFC 9457 problem details (`application/problem+json`)
 - Hold TTL: 300 seconds
 - Up to 6 seats per hold, claimed all or nothing
+- `Idempotency-Key` honoured on `POST /api/bookings`, so a retry returns the
+  original booking rather than a conflict
 
 Seven endpoints. Four are the core booking flow. Two are `GET`s that exist so the
 client's URLs survive a page refresh. One releases a hold early.
@@ -300,14 +302,41 @@ chance for it to drift from the lines it summarises.
 
 One currency for the booking, not per seat. One transaction, one currency.
 
+### Retrying safely
+
+`Idempotency-Key` is an optional request header. Without it this endpoint
+behaves as it always did, so poking at the API by hand still works. With it, a
+retry returns the original booking instead of a conflict, which is what a client
+that never saw the first response actually needs.
+
+| Case | Response |
+|---|---|
+| Same key, same body, first attempt finished | The original **201** and the same booking |
+| Same key, same body, first attempt still running | **409** `problems/idempotency-key-in-progress` |
+| Same key, different body | **422** `problems/idempotency-key-reused` |
+
+The key is claimed before the booking is attempted, not after. Recording it
+afterwards means two concurrent retries both do the work; the primary key on the
+claim is what serialises them. That is also why there is an in-progress case: a
+retry arriving while the first attempt is mid-flight has no honest answer yet,
+so it is told to ask again rather than given a guess.
+
+No response body is stored. A booking never changes, so re-reading it by
+reference reproduces the original response exactly. A general idempotency layer
+would store the body; this one leans on bookings being immutable, and says so.
+
+Keys are kept for 24 hours, which covers any realistic retry.
+
 **409** with a distinct `type` per case:
 
 | `type` | Meaning |
 |---|---|
-| `problems/hold-expired` | The hold lapsed. The seat is available again. |
-| `problems/hold-already-converted` | Double submit of the same hold. |
+| `problems/hold-expired` | The hold lapsed. The seats are available again. |
+| `problems/hold-already-converted` | Double submit without an idempotency key. |
+| `problems/idempotency-key-in-progress` | A retry arrived while the first attempt was still running. |
 
-**404** unknown hold.
+**422** `problems/idempotency-key-reused` if the key was already used for a
+different hold. **404** unknown hold.
 
 ---
 
@@ -351,8 +380,10 @@ between a hold that models intent and one that just models a timeout.
 Deferred, with the reasoning recorded so the omissions read as decisions rather
 than gaps:
 
-- **Idempotency keys** on `POST /api/holds`. Matters under real retry pressure,
-  not for proving the locking works.
+- **Idempotency keys on `POST /api/holds`.** Bookings have them, holds do not. A
+  duplicated hold costs the user nothing: the second request either returns a
+  409 or claims seats that lapse in five minutes. A duplicated booking is a
+  seat somebody paid for twice.
 - **Authentication.** There is no user model. Holds are bearer capabilities.
 - **Payment.** `pricePaidMinor` records the price at booking time; no money moves.
 - **Pagination** on showtimes.
@@ -367,3 +398,7 @@ more informative than either half on its own.
   proves the version check; locking several proves the ordering, which is the
   harder and more interesting half of the problem. The single-seat work was the
   right first scope precisely because it made this one tractable.
+- **Idempotency keys on bookings.** Deferred as mattering only under real retry
+  pressure. That was wrong about where the pressure comes from: it is not load,
+  it is one person on a bad connection pressing Confirm twice. Cheap to add and
+  the failure it prevents is the worst one in the system.

@@ -66,22 +66,26 @@ runtime, ticket price, and how many of 120 seats are free.
 **Shows:** a header with the film, screen and time, then a seat map of 120 seats
 in 10 rows (A to J) of 12. Every seat carries its tier and its own price.
 
-**Action:** tap an available seat to select it, then press Hold. That claims the
-seat for 300 seconds and moves to checkout.
+**Action:** tap up to six available seats to select them, tap again to
+deselect, then press Hold. That claims them for 300 seconds and moves to
+checkout. The summary lists each chosen seat with its own price and a running
+total, and each can be removed from the list as well as from the map.
 
 **States:** loading skeleton, loaded, unknown showtime (404), load error.
 
 **The conflict state matters most:** between the map rendering and the user
-tapping, someone else can take that seat. The hold request comes back 409, the
-seat has to flip to its new state in place, and the user needs a short, calm
-message telling them to pick another. This is not an error page, it is a normal
-thing that happens.
+pressing Hold, someone else can take one of those seats. The request comes back
+409 naming which seats went and what state each is in now, so they flip in place
+and the rest stay selected. This is not an error page, it is a normal thing that
+happens, and the copy has to say plainly that *nothing* was held, because
+all-or-nothing is not what a user assumes.
 
 ### 3. `/hold/[holdId]` Checkout
 
 **Role:** confirm the held seat before the hold lapses.
 
-**Shows:** the held seat, the showtime, the price, and a countdown to expiry.
+**Shows:** the held seats with their individual prices, the showtime, the
+total, and a countdown to expiry.
 
 **Action:** confirm, which converts the hold into a booking.
 
@@ -95,8 +99,8 @@ without feeling like a scam countdown.
 
 **Role:** proof of booking. Reloadable and shareable by URL.
 
-**Shows:** booking reference (`SB-7F3K2Q`), film, screen, start time, seat, price
-paid, time booked.
+**Shows:** booking reference (`SB-7F3K2Q`), film, screen, start time, one line
+per seat with what that seat cost, the total paid, time booked.
 
 **Action:** none, terminal screen. Copying the reference is useful.
 
@@ -145,8 +149,8 @@ viewer will remember.
 | `SeatRow` | row letter at both ends plus 12 seats | one |
 | `Seat` | **the hard one.** One seat | available, selected, held by someone else, booked, hover, keyboard focus, pending |
 | `SeatLegend` | key to the four seat states | one |
-| `SelectionSummary` | chosen seat, price, Hold button | nothing selected, selected, submitting, conflict |
-| `ConflictNotice` | "that seat just went, pick another" | one |
+| `SelectionSummary` | chosen seats with prices, removal, running total, Hold button | nothing selected, 1 to 6 chosen, cap reached, submitting |
+| `ConflictNotice` | which seats went and what state each is in now | one lost, several lost |
 
 ### Checkout
 | Component | Role | States |
@@ -227,8 +231,9 @@ These come from the API and changing them means changing the backend.
 
 - 10 rows labelled A to J, 12 seats per row, 120 seats total, one screen layout
 - A hold lasts 300 seconds
-- **One seat per hold.** There is no basket and no multi-seat selection. The
-  summary shows exactly one seat
+- **One to six seats per hold, all or nothing.** The cap is enforced by the
+  server, not just the UI. If any seat is lost between choosing and holding,
+  nothing is held, and the 409 names which seats went and what state each is in
 - Prices in GBP
 - Three seat tiers: rows A to E Normal, F to H Premium, I to J Executive. The
   tier arrives on every seat from the API, so the client never derives it from
