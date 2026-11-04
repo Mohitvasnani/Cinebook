@@ -98,3 +98,84 @@
     display: block;
   }
 }
+
+/* ------------------------------------------------------------ view toggle */
+
+.toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.viewButton,
+.viewButtonActive {
+  padding: 4px 12px;
+  border: 1px solid var(--color-n400);
+  border-radius: 999px;
+  background: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.viewButton {
+  color: var(--color-n500);
+}
+
+.viewButton:hover {
+  color: var(--color-ink);
+  border-color: var(--color-line-strong);
+}
+
+.viewButtonActive {
+  border-color: var(--color-accent);
+  background: var(--color-accent-tint);
+  color: var(--color-accent-deep);
+}
+
+/* --------------------------------------------------------------- the stage */
+
+/* In fit the stage is exactly the container, so nothing scrolls and overflow
+   never comes up. In zoom the stage is as wide as 12 fixed-width seats need
+   and this is what scrolls. */
+.scroller {
+  overflow-x: auto;
+  /* Stops a horizontal swipe on the map from turning into a browser back
+     gesture or scrolling the page sideways. */
+  overscroll-behavior-x: contain;
+}
+
+.stage {
+  width: 100%;
+}
+
+/* ---------------------------------------------------------------- zoom view */
+
+/* 44px is the usual minimum touch target, which is the whole reason this view
+   exists: in fit, 12 seats across a 375px screen leaves about 26px each, and
+   picking six of those in a row is fiddly. */
+.zoom {
+  --seat-size: 44px;
+}
+
+.zoom .stage {
+  width: max-content;
+  /* Breathing room so the last seat is not flush against the scroll edge. */
+  padding-right: 4px;
+}
+
+.zoom .blocks {
+  flex: 0 0 auto;
+}
+
+.zoom .block {
+  flex: 0 0 auto;
+  gap: 5px;
+}
+
+.zoom .slot,
+.zoom .gap {
+  flex: 0 0 var(--seat-size);
+}

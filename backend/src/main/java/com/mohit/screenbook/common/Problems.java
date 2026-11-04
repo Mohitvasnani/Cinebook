@@ -14,6 +14,9 @@ public final class Problems {
     public static final String HOLD_ALREADY_CONVERTED = BASE + "/hold-already-converted";
     public static final String VALIDATION_FAILED = BASE + "/validation-failed";
 
+    public static final String IDEMPOTENCY_KEY_REUSED = BASE + "/idempotency-key-reused";
+    public static final String IDEMPOTENCY_KEY_IN_PROGRESS = BASE + "/idempotency-key-in-progress";
+
     private Problems() {
     }
 }

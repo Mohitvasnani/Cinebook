@@ -13,10 +13,10 @@ import styles from "@/css/SeatLegend.module.css";
    Drawn in the Normal tint, because the legend is about state, not tier. Tier
    is labelled in the cross-aisles instead. */
 const ITEMS = [
-  { label: "Free", state: seatStyles.available },
-  { label: "Yours", state: seatStyles.selected },
-  { label: "Held by someone", state: seatStyles.held },
-  { label: "Booked", state: seatStyles.booked },
+  { label: "Free", state: seatStyles.available, mark: null },
+  { label: "Yours", state: seatStyles.selected, mark: null },
+  { label: "Held by someone", state: seatStyles.held, mark: "held" },
+  { label: "Booked", state: seatStyles.booked, mark: null },
 ];
 
 export function SeatLegend() {
@@ -25,12 +25,14 @@ export function SeatLegend() {
       {ITEMS.map((item) => (
         <li key={item.label} className={styles.item}>
           <span aria-hidden className={styles.swatchBox}>
-            <span className={`${seatStyles.seat} ${seatStyles.normal} ${item.state}`} />
+            <span className={`${seatStyles.seat} ${seatStyles.normal} ${item.state}`}>
+              {item.mark === "held" && <span className={seatStyles.heldMark} />}
+            </span>
           </span>
           {item.label}
         </li>
       ))}
-      <li className={styles.hint}>Arrow keys move · Enter selects</li>
+           <li className={styles.hint}>Arrow keys move · Enter selects</li>
     </ul>
   );
 }

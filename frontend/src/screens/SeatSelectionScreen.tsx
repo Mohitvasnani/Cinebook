@@ -13,9 +13,10 @@ import { api } from "@/services/apiClient";
 import { MAX_SEATS_PER_HOLD } from "@/services/apiConfig";
 import { ApiError } from "@/services/problemDetails";
 import type { Seat, UnavailableSeat } from "@/types/api";
+import { extendsRun, isRunEnd } from "@/utils/adjacency";
 import { dayAndTime, money, seatNames } from "@/utils/format";
 
-/* Reading order, so the summary lists A2 before F1 however they were tapped. */
+/* Reading order, so the summary lists A2 before A3 however they were tapped. */
 const byPosition = (a: Seat, b: Seat) =>
   a.rowLabel.localeCompare(b.rowLabel) || a.seatNumber - b.seatNumber;
 
@@ -27,7 +28,9 @@ export function SeatSelectionScreen() {
   const [holding, setHolding] = useState(false);
   const [lost, setLost] = useState<UnavailableSeat[]>([]);
   const [problem, setProblem] = useState<string | null>(null);
-  const [capHit, setCapHit] = useState(false);
+  /* Guidance, not failure: the cap, or an explanation of why the selection
+     just restarted. Styled as a warning rather than an error. */
+  const [note, setNote] = useState<string | null>(null);
 
   const seats = useApi(() => api.getSeatMap(showtimeId), `seats:${showtimeId}`);
   const showtimes = useApi(() => api.listShowtimes(), "showtimes");
@@ -60,17 +63,42 @@ export function SeatSelectionScreen() {
     setProblem(null);
 
     if (selectedIds.has(seat.id)) {
-      setSelected(selected.filter((s) => s.id !== seat.id));
-      setCapHit(false);
+      /* Only the ends come off, because removing from the middle would split
+         the run in two. Tapping a middle seat starts again from there, the
+         same thing tapping any non-adjacent seat does. */
+      if (isRunEnd(selected, seat)) {
+        setSelected(selected.filter((s) => s.id !== seat.id));
+        setNote(null);
+      } else {
+        setSelected([seat]);
+        setNote(
+          `Started again at ${seat.rowLabel}${seat.seatNumber}. Seats have to stay in one unbroken row.`,
+        );
+      }
       return;
     }
-    /* The cap is the server's rule; this is the courtesy of not letting someone
-       tap a seventh seat and then be told no by a 422. */
+
+    if (!extendsRun(selected, seat)) {
+      /* Not next to what is already chosen. Starting a new selection there is
+         friendlier than refusing the tap, and it is what the person almost
+         certainly meant if they tapped somewhere else entirely. */
+      setSelected([seat]);
+      setNote(
+        selected.length > 0
+          ? `Started again at ${seat.rowLabel}${seat.seatNumber}. Seats have to be next to each other in one row.`
+          : null,
+      );
+      return;
+    }
+
     if (selected.length >= MAX_SEATS_PER_HOLD) {
-      setCapHit(true);
+      setNote(
+        `${MAX_SEATS_PER_HOLD} seats per booking. Remove one from either end to swap it.`,
+      );
       return;
     }
-    setCapHit(false);
+
+    setNote(null);
     setSelected([...selected, seat].sort(byPosition));
   }
 
@@ -90,8 +118,7 @@ export function SeatSelectionScreen() {
     } catch (err) {
       /* Losing a seat between rendering the map and tapping Hold is ordinary,
          not an error page. The 409 names which seats went, so those are dropped
-         from the selection and the rest are kept: requested minus unavailable
-         is exactly the set still wanted. */
+         from the selection and the rest are kept. */
       if (err instanceof ApiError && err.is("seats-unavailable")) {
         const unavailable =
           (err.problem.unavailableSeats as UnavailableSeat[] | undefined) ?? [];
@@ -154,9 +181,7 @@ export function SeatSelectionScreen() {
         </div>
 
         <aside className={styles.aside}>
-          {lost.length > 0 && (
-            <ConflictNotice seats={lost} keptCount={count} />
-          )}
+          {lost.length > 0 && <ConflictNotice seats={lost} keptCount={count} />}
 
           <div className={styles.summary}>
             <p className={styles.kicker}>
@@ -184,7 +209,11 @@ export function SeatSelectionScreen() {
                         type="button"
                         className={styles.remove}
                         onClick={() => toggle(seat)}
-                        disabled={holding}
+                        /* Disabled in the middle of a run, because removing it
+                           would split the selection in two. The ends stay
+                           removable, which is enough to shrink a run from
+                           either side. */
+                        disabled={holding || !isRunEnd(selected, seat)}
                         aria-label={`Remove seat ${seat.rowLabel}${seat.seatNumber}`}
                       >
                         ×
@@ -200,9 +229,9 @@ export function SeatSelectionScreen() {
               </>
             )}
 
-            {capHit && (
+            {note && (
               <p className={styles.cap} role="status">
-                {MAX_SEATS_PER_HOLD} seats per booking. Remove one to swap it.
+                {note}
               </p>
             )}
 
@@ -222,10 +251,10 @@ export function SeatSelectionScreen() {
             </button>
 
             <p className={styles.note}>
-              Holding keeps {count === 1 ? "the seat" : "the seats"} for five
-              minutes while you check out. All of them or none: if one goes while
-              you are choosing, nothing is held. Nothing is charged until you
-              confirm.
+              Seats have to be next to each other in one row, so groups sit
+              together. Holding keeps them for five minutes while you check out.
+              All of them or none: if one goes while you are choosing, nothing is
+              held. Nothing is charged until you confirm.
             </p>
           </div>
         </aside>

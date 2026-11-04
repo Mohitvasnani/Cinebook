@@ -1,8 +1,20 @@
 /* One seat.
 
-   Tier sets --seat-tint and the silhouette; state sets fill, border style and
-   glyph. Keeping those two axes separate is why there are three tiers and
-   seven states but not twenty-one rules. */
+   Two axes. Tier sets --seat-tint and the silhouette; state sets fill, border
+   style, opacity and mark. Keeping them separate is why three tiers and seven
+   states need seven rules rather than twenty-one.
+
+   The four states are deliberately four different *kinds* of thing, not four
+   colours:
+
+     free     tinted outline, no fill, no mark
+     yours    solid light fill, tick
+     held     hatched fill, dashed border, bar, slightly receded
+     booked   flat dead fill, cross, dimmed
+
+   Red and green would be the obvious choice and the wrong one: roughly one man
+   in twelve cannot separate them, and this is the screen where getting it wrong
+   means booking a seat you did not want. Every state survives greyscale. */
 
 .seat {
   position: relative;
@@ -20,10 +32,11 @@
   transition:
     background-color 120ms ease,
     transform 120ms ease,
+    opacity 120ms ease,
     border-width 120ms ease;
 }
 
-.seat:disabled {
+.seat[aria-disabled="true"] {
   cursor: not-allowed;
 }
 
@@ -34,9 +47,19 @@
   box-shadow:
     0 0 0 2px var(--color-bg),
     0 0 0 4px var(--color-ink);
+  /* A focused seat is being considered, so it comes forward even if its state
+     would otherwise recede. */
+  opacity: 1;
+  z-index: 1;
 }
 
-/* Tier: outline tint only, plus the silhouette parts below. */
+@media (prefers-reduced-motion: reduce) {
+  .seat {
+    transition: none;
+  }
+}
+
+/* Tier: outline tint and the silhouette parts below. Never state. */
 .normal {
   --seat-tint: var(--tier-normal);
 }
@@ -49,39 +72,44 @@
   --seat-tint: var(--tier-executive);
 }
 
-/* The states. Each differs in fill, border style AND glyph, so the map still
-   reads with colour removed. Red/green is the obvious choice and the wrong
-   one: roughly one man in twelve cannot separate them, and this is the screen
-   where getting it wrong means booking a seat you did not want. */
+/* ------------------------------------------------------------------ states */
 
+/* Free: outline only. The one state with no mark, because "nothing on it" is
+   the clearest possible signal that nothing has happened to this seat. */
 .available {
   border-color: var(--seat-tint);
   color: var(--seat-tint);
 }
 
-.available:hover:enabled {
+.available:not([aria-disabled="true"]):hover {
   border-width: 2.5px;
   background: color-mix(in srgb, var(--seat-tint) 18%, transparent);
   transform: translateY(-1px);
 }
 
+/* Yours: the only solid light fill on the map, so your own seats are findable
+   in one glance across 120 of them. */
 .selected {
   border-color: var(--color-ink);
   background: var(--color-ink);
   color: rgba(13, 14, 18, 0.45);
 }
 
-/* The chosen seat while POST /api/holds is in flight. */
+/* Your seat while POST /api/holds is in flight. Half-filled: committed but not
+   yet confirmed. */
 .pending {
   border-color: var(--color-ink);
   background: color-mix(in srgb, var(--color-ink) 50%, transparent);
   color: rgba(13, 14, 18, 0.35);
 }
 
+/* Held by someone else: hatched and dashed, and receded, because it is not
+   actionable but it may come back in five minutes. */
 .held {
   border-style: dashed;
   border-color: var(--seat-tint);
   color: var(--seat-tint);
+  opacity: 0.8;
   background-image: repeating-linear-gradient(
     135deg,
     color-mix(in srgb, var(--seat-tint) 45%, transparent) 0 2px,
@@ -89,14 +117,35 @@
   );
 }
 
+/* Booked: gone for good. Flat, dimmed, and the only state that drops its tier
+   tint entirely, because what tier a sold seat was is of no use to anyone. */
 .booked {
   border-color: var(--seat-booked);
   background: var(--seat-booked);
   color: var(--seat-booked-mark);
+  opacity: 0.65;
 }
 
-/* Silhouette. Premium gets a headrest bar, Executive gets armrests, so tier
-   survives greyscale without reading the cross-aisle label. */
+/* ------------------------------------------------------------------- marks */
+
+/* Held. A bar rather than a cross: held is temporary, booked is permanent, and
+   two marks that look alike would collapse the distinction. */
+.heldMark {
+  width: 34%;
+  height: 2px;
+  min-height: 1.5px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+.check {
+  color: var(--color-bg);
+}
+
+/* -------------------------------------------------------------- silhouette */
+
+/* Premium gets a headrest bar, Executive gets armrests, so tier survives
+   greyscale without reading the cross-aisle label. */
 .headrest {
   position: absolute;
   bottom: 12%;
@@ -145,8 +194,4 @@
   to {
     transform: rotate(360deg);
   }
-}
-
-.check {
-  color: var(--color-bg);
 }
