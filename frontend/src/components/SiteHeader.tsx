@@ -1,39 +1,68 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import styles from "@/css/SiteHeader.module.css";
-import { API_BASE_URL, IS_MOCK } from "@/services/apiConfig";
+import { IS_MOCK } from "@/services/apiConfig";
 
-/* Wordmark, mode badge, and the banner saying where the data comes from.
-   The banner is not dismissible on purpose: a demo that hides the fact it is
-   a demo is exactly what this project should not be. */
+/* Wordmark, mode badge and nav. Sticky, so the mode badge stays visible: on the
+   seat map you are making a decision about money, and whether this is a demo or
+   the real API should never be something you have to scroll up to recheck.
+
+   ModeBanner is rendered above this in app/layout.tsx rather than inside it,
+   so the banner scrolls away and only the bar stays. */
 export function SiteHeader() {
+  const pathname = usePathname();
+  const onRace = pathname.startsWith("/race");
+
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    /* passive: true tells the browser this listener will not call
+       preventDefault, so scrolling is never blocked waiting on it. The read is
+       window.scrollY only, which costs nothing. */
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
-    <header>
+    <header className={`${styles.header} ${scrolled ? styles.scrolled : ""}`}>
       <div className={styles.bar}>
         <Link href="/" className={styles.wordmark}>
-          Screen<em>book</em>
+          Screen<span className={styles.wordmarkAccent}>Book</span>
         </Link>
 
-        <div className={styles.right}>
-          <span className={IS_MOCK ? styles.badgeDemo : styles.badgeLive}>
-            <span aria-hidden>{IS_MOCK ? "○" : "●"}</span>
-            {IS_MOCK ? "DEMO" : "LIVE"}
-          </span>
-          <Link href="/race" className={styles.raceLink}>
+        <span className={IS_MOCK ? styles.badgeDemo : styles.badgeLive}>
+          <span aria-hidden className={styles.badgeDot} />
+          {IS_MOCK ? "DEMO" : "LIVE"}
+        </span>
+
+        <nav aria-label="Main" className={styles.nav}>
+          <Link href="/" className={onRace ? styles.navLink : styles.navLinkActive}>
+            Showtimes
+          </Link>
+          <Link href="/race" className={onRace ? styles.navLinkActive : styles.navLink}>
+            <svg
+              aria-hidden
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M9 3h6M10 3v6L4.5 19a1.5 1.5 0 0 0 1.3 2h12.4a1.5 1.5 0 0 0 1.3-2L14 9V3" />
+            </svg>
             Race demo
           </Link>
-        </div>
+        </nav>
       </div>
-
-      {/* <p className={IS_MOCK ? styles.bannerDemo : styles.bannerLive}>
-        <span className={styles.bannerInner}>
-          {IS_MOCK
-            ? "Demo mode: showtimes, seats and bookings are mock data kept in this browser."
-            : `Live mode: connected to ${API_BASE_URL || "the API"}. Holds and bookings are real.`}
-        </span>
-      </p> */}
     </header>
   );
 }

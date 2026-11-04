@@ -1,81 +1,123 @@
-.bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    max-width: 1040px;
-    margin: 0 auto;
-    padding: 16px;
-  }
-  
+/* Sticky with a translucent fill, so content reads as passing underneath rather
+   than colliding with an opaque slab. */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: color-mix(in srgb, var(--color-bg) 86%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--color-n200);
+  transition:
+    box-shadow 160ms ease,
+    border-color 160ms ease;
+}
+
+/* The scrolled state does two things: it earns a shadow, because the header is
+   now overlapping content rather than sitting above it, and it gives back
+   vertical space by shrinking. Nothing moves horizontally, so the nav and badge
+   stay where the eye left them. */
+.scrolled {
+  border-bottom-color: var(--color-line-strong);
+  box-shadow: var(--shadow-lifted);
+}
+
+.scrolled .bar {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.scrolled .wordmark {
+  font-size: 24px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .header,
+  .bar,
   .wordmark {
-    font-family: var(--font-heading);
-    font-size: 26px;
-    line-height: 1;
-    color: var(--color-ink);
-    text-decoration: none;
+    transition: none;
   }
-  
-  .wordmark em {
-    font-style: italic;
-  }
-  
-  .right {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-  }
-  
-  /* Badges share everything but their border and colour, so the shared rules
-     live in one place and the two variants only override what differs. */
-  .badgeDemo,
-  .badgeLive {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 8px;
-    border-radius: 3px;
-    font-size: 11px;
-    letter-spacing: 0.14em;
-    border: 1px solid;
-  }
-  
-  .badgeDemo {
-    border-style: dashed;
-    border-color: var(--color-n400);
-    color: var(--color-n700);
-  }
-  
-  .badgeLive {
-    border-color: var(--color-accent);
-    color: var(--color-accent-deep);
-  }
-  
-  .raceLink {
-    font-size: 14px;
-    color: var(--color-accent-deep);
-  }
-  
-  .bannerDemo,
-  .bannerLive {
-    border-top: 1px solid var(--color-divider);
-    border-bottom: 1px solid var(--color-divider);
-    padding: 8px 16px;
-    font-size: 13px;
-  }
-  
-  .bannerDemo {
-    background: var(--color-surface);
-    color: var(--color-n700);
-  }
-  
-  .bannerLive {
-    background: var(--color-accent-tint);
-    color: var(--color-accent-deep);
-  }
-  
-  .bannerInner {
-    display: block;
-    max-width: 1040px;
-    margin: 0 auto;
-  }
+}
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 14px 16px;
+  transition: padding 160ms ease;
+}
+
+.wordmark {
+  font-family: var(--font-heading);
+  font-stretch: 70%;
+  font-weight: 800;
+  font-size: 30px;
+  letter-spacing: -0.5px;
+  line-height: 1;
+  color: var(--color-ink);
+  text-decoration: none;
+    transition: font-size 160ms ease;
+}
+
+.wordmarkAccent {
+  color: var(--color-accent);
+}
+
+/* Badges share everything but their fill, so the shared rules live in one
+   place and the two variants only override what differs. */
+.badgeDemo,
+.badgeLive {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+
+
+/* Live is the loud one: solid ivory, because it means the seats are shared. */
+.badgeLive {
+  background: var(--color-ink);
+  color: var(--color-bg);
+}
+
+.badgeDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-left: auto;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.navLink,
+.navLinkActive {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 4px;
+  text-decoration: none;
+}
+
+.navLink {
+  color: var(--color-n700);
+}
+
+.navLinkActive {
+  color: var(--color-ink);
+  border-bottom: 2px solid var(--color-ink);
+}

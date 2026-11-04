@@ -1,0 +1,47 @@
+/* Moved out of SiteHeader.module.css unchanged. The banner is its own component
+   now, so its styles travel with it. */
+
+.bannerDemo,
+.bannerLive {
+  padding: 10px 16px;
+  font-size: 13px;
+}
+
+/* Dashed rules on the demo banner, solid on the live one: the dashes are the
+   same "not real" signal the DEMO badge uses. */
+.bannerDemo {
+  background: var(--color-surface);
+  border-top: 1px dashed var(--color-line-strong);
+  border-bottom: 1px dashed var(--color-line-strong);
+}
+
+.bannerLive {
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-n400);
+}
+
+.bannerInner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 1040px;
+  margin: 0 auto;
+}
+
+.bannerLead {
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.bannerRest {
+  color: var(--color-n700);
+}
+
+.liveDot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-ink);
+  box-shadow: 0 0 0 3px rgba(242, 238, 230, 0.18);
+}

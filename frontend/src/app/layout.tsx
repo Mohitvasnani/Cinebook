@@ -1,22 +1,23 @@
 import type { Metadata } from "next";
-import { Cormorant_Garamond, JetBrains_Mono, Lora } from "next/font/google";
+import { Archivo, Inter, JetBrains_Mono } from "next/font/google";
+import { ModeBanner } from "@/components/ModeBanner";
 import { MockProvider } from "@/components/MockProvider";
 import { SiteHeader } from "@/components/SiteHeader";
 import "@/css/globals.css";
+import { SiteFooter } from "@/components/SiteFooter";
 
 /* Self-hosted at build time, so no render-blocking request to Google and no
    flash of fallback type. Each .variable is a class defining the CSS variable
    that css/tokens.css reads, which is why all three go on <html>. */
-const cormorant = Cormorant_Garamond({
-  variable: "--font-cormorant",
+const archivo = Archivo({
+  variable: "--font-archivo",
   subsets: ["latin"],
-  weight: ["400", "600"],
 });
 
-const lora = Lora({
-  variable: "--font-lora",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
-  weight: ["400", "600"],
+  weight: ["400", "500", "600"],
 });
 
 const jetbrains = JetBrains_Mono({
@@ -34,13 +35,16 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${cormorant.variable} ${lora.variable} ${jetbrains.variable}`}
+      className={`${archivo.variable} ${inter.variable} ${jetbrains.variable}`}
     >
-      <body> 
-        <MockProvider>
-          <main><SiteHeader />
-          {children}
-          </main>          
+            <body>
+                <MockProvider>
+          {/* Above the sticky header, so it scrolls away. Read once, not
+              permanently occupying the viewport on a 375px screen. */}
+          <ModeBanner />
+          <SiteHeader />
+          <main>{children}</main>
+          <SiteFooter />
         </MockProvider>
       </body>
     </html>
