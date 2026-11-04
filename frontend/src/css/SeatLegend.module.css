@@ -1,23 +1,29 @@
 .root {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 8px 24px;
-    margin-top: 24px;
-    padding: 0;
-    list-style: none;
-    font-size: 13px;
-    color: var(--color-n700);
-  }
-  
-  .item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  
-  .swatch {
-    width: 14px;
-    height: 14px;
-    border-radius: 3px;
-  }
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 20px;
+  margin-top: 24px;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  color: var(--color-n700);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Sizes the swatch without touching any of the seat's own properties, so
+   nothing collides whichever order the two stylesheets land in. */
+.swatchBox {
+  display: block;
+  flex: 0 0 auto;
+  width: 16px;
+}
+
+.hint {
+  color: var(--color-n500);
+}

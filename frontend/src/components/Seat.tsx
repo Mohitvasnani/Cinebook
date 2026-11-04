@@ -3,18 +3,17 @@
 import styles from "@/css/Seat.module.css";
 import type { Seat as SeatType } from "@/types/api";
 import { seatLabel } from "@/utils/format";
+import { TIERS, tierOf } from "@/utils/seatTiers";
 
 /* One seat.
 
-   Every state is legible with colour removed:
-     available  thin outline, empty
-     selected   accent ring and a tick
-     held       diagonal hatch
-     booked     tinted fill and a cross
+   Two independent axes, matching the "Seat: tiers x states" artboard:
 
-   Red/green is the obvious choice and the wrong one. Roughly one man in twelve
-   can't separate them, and this is the screen where getting it wrong means
-   booking a seat you didn't want. */
+     tier   outline tint and silhouette (headrest, armrests)
+     state  fill, border style and glyph
+
+   Keeping them separate means a tier can be added without touching any state
+   rule, and the reverse. */
 export function Seat({
   seat,
   selected,
@@ -27,37 +26,90 @@ export function Seat({
   onSelect: (seat: SeatType) => void;
 }) {
   const taken = seat.status === "BOOKED" || seat.status === "HELD";
+  const tier = tierOf(seat.rowLabel);
 
-  const state = selected
-    ? styles.selected
-    : seat.status === "BOOKED"
-      ? styles.booked
-      : seat.status === "HELD"
-        ? styles.held
-        : styles.available;
+  /* pending is the in-flight hold. It only means anything on the seat the
+     request is for, which is why it is read together with selected. */
+  const claiming = selected && pending;
 
-  /* Screen readers get the state in words, since the visual cue carries it
-     for everyone else. */
-  const spoken = selected
-    ? "your seat"
-    : seat.status === "BOOKED"
-      ? "booked"
-      : seat.status === "HELD"
-        ? "held by someone else"
-        : "free";
+  const state = claiming
+    ? styles.pending
+    : selected
+      ? styles.selected
+      : seat.status === "BOOKED"
+        ? styles.booked
+        : seat.status === "HELD"
+          ? styles.held
+          : styles.available;
+
+  /* Screen readers get tier and state in words, since the silhouette and the
+     fill carry them for everyone else. */
+  const spoken = claiming
+    ? "selecting"
+    : selected
+      ? "selected"
+      : seat.status === "BOOKED"
+        ? "booked"
+        : seat.status === "HELD"
+          ? "held by another customer"
+          : "available";
+
+  const label = seatLabel(seat.rowLabel, seat.seatNumber);
 
   return (
     <button
       type="button"
       disabled={taken || pending}
-      aria-label={`Seat ${seatLabel(seat.rowLabel, seat.seatNumber)}, ${spoken}`}
+      /* Pointer-only affordance. Touch users get the same facts in the
+         summary panel once they tap. */
+      title={`${label} · ${TIERS[tier].label}`}
+      aria-label={`Seat ${label}, ${TIERS[tier].label}, ${spoken}`}
       aria-pressed={selected}
       onClick={() => onSelect(seat)}
-      className={`${styles.seat} ${state}`}
+      className={`${styles.seat} ${styles[tier]} ${state}`}
     >
-      <span aria-hidden>
-        {selected ? "✓" : seat.status === "BOOKED" ? "✕" : ""}
-      </span>
+      {claiming && <span aria-hidden className={styles.ring} />}
+
+      {tier === "premium" && <span aria-hidden className={styles.headrest} />}
+
+      {tier === "executive" && (
+        <>
+          <span aria-hidden className={`${styles.arm} ${styles.armLeft}`} />
+          <span aria-hidden className={`${styles.arm} ${styles.armRight}`} />
+        </>
+      )}
+
+      {selected && !claiming && (
+        <svg
+          aria-hidden
+          className={styles.check}
+          width="60%"
+          height="60%"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="3.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M5 12.5l4.5 4.5L19 7.5" />
+        </svg>
+      )}
+
+      {seat.status === "BOOKED" && !selected && (
+        <svg
+          aria-hidden
+          width="50%"
+          height="50%"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="3.5"
+          strokeLinecap="round"
+        >
+          <path d="M6 6l12 12M18 6L6 18" />
+        </svg>
+      )}
     </button>
   );
 }

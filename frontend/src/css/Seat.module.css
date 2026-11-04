@@ -1,46 +1,152 @@
+/* One seat.
+
+   Tier sets --seat-tint and the silhouette; state sets fill, border style and
+   glyph. Keeping those two axes separate is why there are three tiers and
+   seven states but not twenty-one rules. */
+
 .seat {
-    width: 100%;
-    aspect-ratio: 1;
-    border-radius: var(--radius);
-    font-size: 10px;
-    line-height: 1;
-    background: none;
-    cursor: pointer;
-    transition: background-color 120ms ease;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-seat);
+  background: none;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    transform 120ms ease,
+    border-width 120ms ease;
+}
+
+.seat:disabled {
+  cursor: not-allowed;
+}
+
+/* The focus ring is drawn as two shadows rather than an outline, so it clears
+   the seat's non-rectangular shape instead of boxing it. */
+.seat:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--color-bg),
+    0 0 0 4px var(--color-ink);
+}
+
+/* Tier: outline tint only, plus the silhouette parts below. */
+.normal {
+  --seat-tint: var(--tier-normal);
+}
+
+.premium {
+  --seat-tint: var(--tier-premium);
+}
+
+.executive {
+  --seat-tint: var(--tier-executive);
+}
+
+/* The states. Each differs in fill, border style AND glyph, so the map still
+   reads with colour removed. Red/green is the obvious choice and the wrong
+   one: roughly one man in twelve cannot separate them, and this is the screen
+   where getting it wrong means booking a seat you did not want. */
+
+.available {
+  border-color: var(--seat-tint);
+  color: var(--seat-tint);
+}
+
+.available:hover:enabled {
+  border-width: 2.5px;
+  background: color-mix(in srgb, var(--seat-tint) 18%, transparent);
+  transform: translateY(-1px);
+}
+
+.selected {
+  border-color: var(--color-ink);
+  background: var(--color-ink);
+  color: rgba(13, 14, 18, 0.45);
+}
+
+/* The chosen seat while POST /api/holds is in flight. */
+.pending {
+  border-color: var(--color-ink);
+  background: color-mix(in srgb, var(--color-ink) 50%, transparent);
+  color: rgba(13, 14, 18, 0.35);
+}
+
+.held {
+  border-style: dashed;
+  border-color: var(--seat-tint);
+  color: var(--seat-tint);
+  background-image: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--seat-tint) 45%, transparent) 0 2px,
+    transparent 2px 6px
+  );
+}
+
+.booked {
+  border-color: var(--seat-booked);
+  background: var(--seat-booked);
+  color: var(--seat-booked-mark);
+}
+
+/* Silhouette. Premium gets a headrest bar, Executive gets armrests, so tier
+   survives greyscale without reading the cross-aisle label. */
+.headrest {
+  position: absolute;
+  top: 12%;
+  left: 28%;
+  right: 28%;
+  height: 8%;
+  min-height: 1.5px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+.arm {
+  position: absolute;
+  bottom: 12%;
+  height: 42%;
+  width: 9%;
+  min-width: 1.5px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+.armLeft {
+  left: 10%;
+}
+
+.armRight {
+  right: 10%;
+}
+
+/* Pending ring. Dashed and slow: it says "working", not "alarm". */
+.ring {
+  position: absolute;
+  inset: -3px;
+  border: 1.5px dashed var(--color-ink);
+  border-radius: 40%;
+  animation: seatSpin 2.4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ring {
+    animation: none;
   }
-  
-  .seat:disabled {
-    cursor: not-allowed;
+}
+
+@keyframes seatSpin {
+  to {
+    transform: rotate(360deg);
   }
-  
-  /* The four states. Each differs in more than colour: border weight, fill,
-     pattern or glyph, so the map still reads in greyscale. */
-  
-  .available {
-    border: 1px solid var(--color-n400);
-  }
-  
-  .available:hover {
-    background: var(--color-surface);
-  }
-  
-  .selected {
-    border: 2px solid var(--color-accent);
-    color: var(--color-accent-deep);
-  }
-  
-  .held {
-    border: 1px solid var(--color-n300);
-    color: transparent;
-    background-image: repeating-linear-gradient(
-      45deg,
-      var(--color-n300) 0 2px,
-      transparent 2px 5px
-    );
-  }
-  
-  .booked {
-    border: 1px solid var(--color-n300);
-    background: var(--color-n200);
-    color: var(--color-n500);
-  }
+}
+
+.check {
+  color: var(--color-bg);
+}

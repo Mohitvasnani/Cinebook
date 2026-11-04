@@ -1,71 +1,100 @@
 .root {
-    width: 100%;
-    max-width: 560px;
-    margin: 0 auto;
-  }
-  
-  .curve {
-    width: 85%;
-    height: 24px;
-    margin: 0 auto 4px;
-    border-top: 1px solid var(--color-accent);
-    border-radius: 50% 50% 0 0;
-    opacity: 0.6;
-  }
-  
-  .screen {
-    margin-bottom: 20px;
-    text-align: center;
-    font-size: 10px;
-    letter-spacing: 0.4em;
-    color: var(--color-n700);
-  }
-  
-  .rows {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  
-  .row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  
-  .rowLabel,
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.screenWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 18px;
+  color: var(--color-ink);
+}
+
+/* Drawn rather than faked with a border radius, so the curve keeps its shape
+   at every width instead of flattening out. */
+.curve {
+  width: 100%;
+  height: 44px;
+}
+
+.screen {
+  margin-top: -8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.5em;
+  text-indent: 0.5em;
+  color: var(--color-n700);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rowLabel,
+.rowLabelEnd {
+  flex: 0 0 16px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-n500);
+}
+
+/* Second label is dropped on narrow screens to buy width for the seats. */
+.rowLabelEnd {
+  display: none;
+}
+
+.blocks {
+  display: flex;
+  flex: 1;
+  gap: 14px; /* the walking aisles */
+}
+
+.block {
+  display: flex;
+  flex: 1;
+  gap: 3px;
+}
+
+.slot,
+.gap {
+  flex: 1;
+}
+
+/* Cross-aisle. The gap between tiers is the section label: a hairline either
+   side of the tier name, in that tier's tint. */
+.crossAisle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 6px;
+}
+
+.aisleRule {
+  flex: 1;
+  height: 1px;
+  background: var(--color-n400);
+}
+
+.aisleLabel {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--tier-color);
+}
+
+@media (min-width: 640px) {
   .rowLabelEnd {
-    flex: 0 0 16px;
-    text-align: center;
-    font-size: 11px;
-    color: var(--color-n700);
+    display: block;
   }
-  
-  /* Second label is dropped on narrow screens to buy width for the seats. */
-  .rowLabelEnd {
-    display: none;
-  }
-  
-  .blocks {
-    display: flex;
-    flex: 1;
-    gap: 12px; /* the aisles */
-  }
-  
-  .block {
-    display: flex;
-    flex: 1;
-    gap: 4px;
-  }
-  
-  .slot,
-  .gap {
-    flex: 1;
-  }
-  
-  @media (min-width: 640px) {
-    .rowLabelEnd {
-      display: block;
-    }
-  }
-  
+}

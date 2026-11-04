@@ -1,29 +1,51 @@
-/* Design tokens for the Classical palette used in the mockups (docs/design-brief.md).
-   Colours and type are defined here and nowhere else, so a palette change is a
-   one-file change. */
+/* Design tokens for the Projector palette used in the mockups
+   (ScreenBook UI Mockups canvas, "Foundations" artboard). Colours and type are
+   defined here and nowhere else, so a palette change is a one-file change. */
 
-   :root {
-    --color-bg: #f3f2f2;
-    --color-surface: #eae9e9;
-    --color-ink: #201f1d;
-  
-    --color-accent: #b68235;
-    --color-accent-tint: #fff3e4;
-    --color-accent-deep: #7d5411;
-  
-    --color-n200: #eae7e7;
-    --color-n300: #d7d3d3;
-    --color-n400: #bab6b6;
-    --color-n500: #9b9797;
-    --color-n700: #605d5d;
-  
-    --color-divider: color-mix(in srgb, #201f1d 16%, transparent);
-  
-    /* Font variables are injected onto <html> by next/font in app/layout.tsx. */
-    --font-heading: var(--font-cormorant), Georgia, serif;
-    --font-body: var(--font-lora), Georgia, serif;
-    --font-mono: var(--font-jetbrains), ui-monospace, monospace;
-  
-    --radius: 4px;
-    --radius-lg: 7px;
-  }
+:root {
+  color-scheme: dark;
+
+  --color-bg: #0d0e12;
+  --color-surface: #16181e;
+  --color-ink: #f2eee6;
+
+  --color-accent: #ff7a59;
+  --color-accent-tint: rgba(255, 122, 89, 0.14);
+  --color-accent-deep: #ffb4a1;
+
+  /* Ramp runs from "just above the background" to "readable muted text".
+     n200 to n400 are fills and borders, n500 and n700 are text. */
+  --color-n200: #1e2028;
+  --color-n300: #23262f;
+  --color-n400: #2c2f3a;
+  --color-n500: #7e8391;
+  --color-n700: #a9adb8;
+
+  /* Lighter than n400, for borders that must be visible against surface. */
+  --color-line-strong: #3a3e4b;
+
+  --color-divider: color-mix(in srgb, #f2eee6 14%, transparent);
+
+  /* Seat tiers. These tint a seat's outline and label it in the cross-aisle;
+     they never carry state on their own, because colour alone cannot.
+     They also step up in lightness, so they survive greyscale. */
+  --tier-normal: #8c95a8;
+  --tier-premium: #6cb4e4;
+  --tier-executive: #e6b450;
+
+  /* A booked seat is a filled, dead shape rather than a tinted outline. */
+  --seat-booked: #2a2d36;
+  --seat-booked-mark: #3d414d;
+
+  /* Font variables are injected onto <html> by next/font in app/layout.tsx. */
+  --font-heading: var(--font-archivo), "Arial Narrow", system-ui, sans-serif;
+  --font-body: var(--font-inter), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+
+  --radius: 10px;
+  --radius-lg: 14px;
+  /* A seat, not a square: rounded shoulders, squarer base. */
+  --radius-seat: 32% 32% 14% 14%;
+
+  --shadow-lifted: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
