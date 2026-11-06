@@ -29,18 +29,25 @@ public class HoldService {
     private final SeatHoldRepository holds;
     private final Clock clock;
     private final Duration ttl;
+    private final int guestMaxSeats;
+    private final int memberMaxSeats;
 
     HoldService(SeatRepository seats, SeatMapQuery seatMap, SeatHoldRepository holds,
-                Clock clock, @Value("${screenbook.hold.ttl-seconds}") long ttlSeconds) {
+                Clock clock,
+                @Value("${screenbook.hold.ttl-seconds}") long ttlSeconds,
+                @Value("${screenbook.holds.max-seats-guest}") int guestMaxSeats,
+                @Value("${screenbook.holds.max-seats-member}") int memberMaxSeats) {
         this.seats = seats;
         this.seatMap = seatMap;
         this.holds = holds;
         this.clock = clock;
         this.ttl = Duration.ofSeconds(ttlSeconds);
+        this.guestMaxSeats = guestMaxSeats;
+        this.memberMaxSeats = memberMaxSeats;
     }
 
     /**
-     * Claims one to six seats for the TTL, all or nothing.
+     * Claims adjacent seats for the TTL, all or nothing.
      *
      * Locks first, then checks, then inserts, all in one transaction. Locking
      * the seat rows before reading availability means that between our check
@@ -60,9 +67,14 @@ public class HoldService {
      * The lock step can sit below the sort in the plan, so a plan change could
      * silently reintroduce the deadlock. Six round trips inside one
      * transaction is a cheap price for an order that is actually guaranteed.
+     *
+     * userId is null for a guest. That is the only thing this needs to know
+     * about identity, and it arrives as a parameter rather than being read
+     * from SecurityContextHolder so the service stays testable without a
+     * security context.
      */
     @Transactional
-    public HoldResponse claim(long showtimeId, List<Long> seatIds) {
+    public HoldResponse claim(long showtimeId, List<Long> seatIds, UUID userId) {
 
         /* A repeated seat is a client bug, not a conflict, so it is rejected
            rather than deduped. Reported as a validation failure because that is
@@ -70,6 +82,20 @@ public class HoldService {
         Set<Long> distinct = new LinkedHashSet<>(seatIds);
         if (distinct.size() != seatIds.size()) {
             throw new ValidationFailedException("seatIds must not repeat a seat.");
+        }
+
+        /* The cap depends on who is asking, which is why it lives here rather
+           than on the request record: a validation annotation runs before
+           anything knows whether there is a session.
+
+           Checked before the locks are taken, because a request that was never
+           going to be allowed should not make anyone else wait on a seat row. */
+        int cap = userId == null ? guestMaxSeats : memberMaxSeats;
+        if (seatIds.size() > cap) {
+            throw new ValidationFailedException(userId == null
+                    ? "Guests can book up to %d seats. Sign in to book up to %d."
+                    .formatted(guestMaxSeats, memberMaxSeats)
+                    : "A booking can cover at most %d seats.".formatted(memberMaxSeats));
         }
 
         // 1. Lock, in ascending id order. Doubles as proof each seat exists.
@@ -88,12 +114,11 @@ public class HoldService {
            404 rather than a 409: a seat that was never there is a different
            mistake from a seat that has gone. */
         if (rows.size() != ordered.size()) {
-
             throw new NotFoundException(
                     "One or more seats do not belong to showtime %d.".formatted(showtimeId));
         }
-        requireAdjacent(rows);
 
+        requireAdjacent(rows);
 
         List<UnavailableSeat> unavailable = rows.stream()
                 .filter(row -> row.status() != SeatStatus.AVAILABLE)
@@ -186,19 +211,10 @@ public class HoldService {
            conflict. Deleting something already gone is not a failure. */
     }
 
-    /* Rows arrive ordered by row then seat number from the query, so this
-       preserves display order rather than deciding it. */
-    private static List<HeldSeatView> seatViews(List<SeatView> rows) {
-        return rows.stream()
-                .map(row -> new HeldSeatView(
-                        row.id(), row.rowLabel(), row.seatNumber(),
-                        row.tier(), row.priceMinor()))
-                .toList();
-    }
     /**
      * One row, no gaps.
      *
-     * A group books in order to sit together, so six seats scattered across the
+     * A group books in order to sit together, so seats scattered across the
      * house is not a booking anyone actually wants, and allowing it leaves the
      * house full of unsellable single gaps.
      *
@@ -224,6 +240,16 @@ public class HoldService {
             throw new ValidationFailedException(
                     "Seats must be next to each other, with no gaps between them.");
         }
+    }
+
+    /* Rows arrive ordered by row then seat number from the query, so this
+       preserves display order rather than deciding it. */
+    private static List<HeldSeatView> seatViews(List<SeatView> rows) {
+        return rows.stream()
+                .map(row -> new HeldSeatView(
+                        row.id(), row.rowLabel(), row.seatNumber(),
+                        row.tier(), row.priceMinor()))
+                .toList();
     }
 
     private static int total(List<SeatView> rows) {

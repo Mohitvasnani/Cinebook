@@ -18,6 +18,8 @@ import com.mohit.screenbook.booking.IdempotentBookings;
 import com.mohit.screenbook.common.IdempotencyKeyInProgressException;
 import com.mohit.screenbook.common.IdempotencyKeyReusedException;
 
+
+import org.springframework.test.context.ActiveProfiles;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Arrays;
 import java.util.ArrayList;
@@ -47,6 +49,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
+@ActiveProfiles("test")
 class ConcurrencyTest {
 
     /**
@@ -76,7 +79,7 @@ class ConcurrencyTest {
 
         List<String> outcomes = runTogether(CONTENDERS, () -> {
             try {
-                holds.claim(target.showtimeId(), List.of(target.seatId()));
+                holds.claim(target.showtimeId(), List.of(target.seatId()), null);
                 return "WON";
             } catch (SeatsUnavailableException e) {
                 return "LOST";
@@ -95,7 +98,7 @@ class ConcurrencyTest {
     @DisplayName("two simultaneous confirmations of one hold produce exactly one booking")
     void confirmRace() throws Exception {
         Target target = someAvailableSeat();
-        HoldResponse hold = holds.claim(target.showtimeId(), List.of(target.seatId()));
+        HoldResponse hold = holds.claim(target.showtimeId(), List.of(target.seatId()), null);
         UUID holdId = hold.holdId();
 
         List<String> outcomes = runTogether(2, () -> {
@@ -169,10 +172,10 @@ class ConcurrencyTest {
         long free = pair.get(0).seatId();
         long taken = pair.get(1).seatId();
 
-        holds.claim(showtimeId, List.of(taken));
+        holds.claim(showtimeId, List.of(taken), null);
 
         SeatsUnavailableException thrown = assertThrows(SeatsUnavailableException.class,
-                () -> holds.claim(showtimeId, List.of(free, taken)));
+                () -> holds.claim(showtimeId, List.of(free, taken), null));
 
         assertEquals(0, liveHolds(showtimeId, free),
                 "the seat that was available must not have been claimed");
@@ -199,7 +202,7 @@ class ConcurrencyTest {
         long showtimeId = three.getFirst().showtimeId();
         List<Long> seatIds = three.stream().map(Target::seatId).toList();
 
-        HoldResponse hold = holds.claim(showtimeId, seatIds);
+        HoldResponse hold = holds.claim(showtimeId, seatIds, null);
 
         assertEquals(3, hold.seats().size(), "the response should list three seats");
         assertEquals(
@@ -217,7 +220,7 @@ class ConcurrencyTest {
     @DisplayName("confirming twice with one idempotency key returns the same booking")
     void idempotentReplay() {
         Target target = someAvailableSeat();
-        HoldResponse hold = holds.claim(target.showtimeId(), List.of(target.seatId()));
+        HoldResponse hold = holds.claim(target.showtimeId(), List.of(target.seatId()), null);
         String key = "replay-" + UUID.randomUUID();
 
         BookingResponse first = idempotent.confirm(hold.holdId(), key);
@@ -238,7 +241,7 @@ class ConcurrencyTest {
     @DisplayName("confirming twice without a key is still a conflict")
     void withoutKeyStillConflicts() {
         Target target = someAvailableSeat();
-        HoldResponse hold = holds.claim(target.showtimeId(), List.of(target.seatId()));
+        HoldResponse hold = holds.claim(target.showtimeId(), List.of(target.seatId()), null);
 
         idempotent.confirm(hold.holdId(), null);
 
@@ -256,8 +259,8 @@ class ConcurrencyTest {
         List<Target> pair = availableSeatsInOneShowtime(2);
         long showtimeId = pair.getFirst().showtimeId();
 
-        HoldResponse first = holds.claim(showtimeId, List.of(pair.get(0).seatId()));
-        HoldResponse second = holds.claim(showtimeId, List.of(pair.get(1).seatId()));
+        HoldResponse first = holds.claim(showtimeId, List.of(pair.get(0).seatId()), null);
+        HoldResponse second = holds.claim(showtimeId, List.of(pair.get(1).seatId()), null);
 
         String key = "reuse-" + UUID.randomUUID();
         idempotent.confirm(first.holdId(), key);
@@ -279,7 +282,7 @@ class ConcurrencyTest {
     @DisplayName("two simultaneous confirmations with one key never produce two bookings")
     void idempotentConfirmRace() throws Exception {
         Target target = someAvailableSeat();
-        HoldResponse hold = holds.claim(target.showtimeId(), List.of(target.seatId()));
+        HoldResponse hold = holds.claim(target.showtimeId(), List.of(target.seatId()), null);
         String key = "race-" + UUID.randomUUID();
 
         List<String> outcomes = runTogether(2, () -> {
@@ -305,7 +308,7 @@ class ConcurrencyTest {
 
     private String attemptClaim(long showtimeId, List<Long> seatIds) {
         try {
-            holds.claim(showtimeId, seatIds);
+            holds.claim(showtimeId, seatIds, null);
             return "WON";
         } catch (SeatsUnavailableException e) {
             return "LOST";

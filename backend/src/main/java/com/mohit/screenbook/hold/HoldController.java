@@ -3,6 +3,8 @@ package com.mohit.screenbook.hold;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -25,9 +27,19 @@ public class HoldController {
         this.holds = holds;
     }
 
+    /**
+     * The Jwt is null for a guest, because /api/holds permits anonymous
+     * requests. That null is the whole signal the service needs: it decides
+     * whether the seat cap is three or six.
+     */
     @PostMapping
-    public ResponseEntity<HoldResponse> create(@Valid @RequestBody CreateHoldRequest request) {
-        HoldResponse hold = holds.claim(request.showtimeId(), request.seatIds());
+    public ResponseEntity<HoldResponse> create(
+            @Valid @RequestBody CreateHoldRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        UUID userId = jwt == null ? null : UUID.fromString(jwt.getSubject());
+
+        HoldResponse hold = holds.claim(request.showtimeId(), request.seatIds(), userId);
         return ResponseEntity
                 .created(URI.create("/api/holds/" + hold.holdId()))
                 .body(hold);

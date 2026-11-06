@@ -12,7 +12,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 
 import java.util.Arrays;
 import java.util.List;
-
+import org.springframework.test.context.ActiveProfiles;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
+@ActiveProfiles("test")
 class HoldRulesTest {
 
     @Autowired
@@ -39,7 +40,7 @@ class HoldRulesTest {
     void runOfThreeIsFine() {
         Run run = fourInARow();
 
-        HoldResponse hold = holds.claim(run.showtimeId(), run.seatIds().subList(0, 3));
+        HoldResponse hold = holds.claim(run.showtimeId(), run.seatIds().subList(0, 3), null);
 
         assertEquals(3, hold.seats().size());
     }
@@ -55,7 +56,7 @@ class HoldRulesTest {
         Run run = fourInARow();
 
         HoldResponse hold = holds.claim(
-                run.showtimeId(), List.of(run.seatIds().get(2), run.seatIds().get(3)));
+                run.showtimeId(), List.of(run.seatIds().get(2), run.seatIds().get(3)), null);
 
         assertEquals(2, hold.seats().size());
     }
@@ -67,7 +68,7 @@ class HoldRulesTest {
 
         assertThrows(ValidationFailedException.class, () ->
                 holds.claim(run.showtimeId(),
-                        List.of(run.seatIds().get(0), run.seatIds().get(2))));
+                        List.of(run.seatIds().get(0), run.seatIds().get(2)), null));
     }
 
     @Test
@@ -77,7 +78,7 @@ class HoldRulesTest {
         long elsewhere = seatInAnotherRow(run.showtimeId(), run.rowLabel());
 
         assertThrows(ValidationFailedException.class, () ->
-                holds.claim(run.showtimeId(), List.of(run.seatIds().getFirst(), elsewhere)));
+                holds.claim(run.showtimeId(), List.of(run.seatIds().getFirst(), elsewhere), null));
     }
 
     @Test
@@ -87,7 +88,7 @@ class HoldRulesTest {
         long seatId = run.seatIds().getFirst();
 
         assertThrows(ValidationFailedException.class, () ->
-                holds.claim(run.showtimeId(), List.of(seatId, seatId)));
+                holds.claim(run.showtimeId(), List.of(seatId, seatId), null));
     }
 
     /* ------------------------------------------------------------- fixtures */

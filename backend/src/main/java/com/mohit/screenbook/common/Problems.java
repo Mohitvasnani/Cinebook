@@ -17,6 +17,9 @@ public final class Problems {
     public static final String IDEMPOTENCY_KEY_REUSED = BASE + "/idempotency-key-reused";
     public static final String IDEMPOTENCY_KEY_IN_PROGRESS = BASE + "/idempotency-key-in-progress";
 
+    public static final String INVALID_CREDENTIALS = BASE + "/invalid-credentials";
+    public static final String EMAIL_TAKEN = BASE + "/email-taken";
+    public static final String INVALID_REFRESH_TOKEN = BASE + "/invalid-refresh-token";
     private Problems() {
     }
 }
