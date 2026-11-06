@@ -8,8 +8,8 @@
    
    /* Empty in mock mode, so requests stay relative and the service worker sees
       them before they leave the page. */
-   export const API_BASE_URL: string =
-     API_MODE === "live" ? (process.env.NEXT_PUBLIC_API_URL ?? "") : "";
+   export const API_BASE_URL = ""
+   
    
    export const IS_MOCK = API_MODE === "mock";
    
